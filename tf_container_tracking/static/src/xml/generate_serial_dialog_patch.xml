@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-inherit="stock.generate_serial_dialog" t-inherit-mode="extension">
+        <xpath expr="//div[@class='row mb-2'][.//input[@t-ref='nextSerialCount']]" position="after">
+            <div class="row mb-2">
+                <div class="col">
+                    <label class="o_form_label" for="tf_length_0">Length</label>
+                </div>
+                <div class="col-9">
+                    <input inputmode="decimal" class="o_input" t-ref="tfLength" id="tf_length_0" type="text"/>
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col">
+                    <label class="o_form_label" for="tf_width_0">Width</label>
+                </div>
+                <div class="col-9">
+                    <input inputmode="decimal" class="o_input" t-ref="tfWidth" id="tf_width_0" type="text"/>
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col">
+                    <label class="o_form_label" for="tf_height_0">Height</label>
+                </div>
+                <div class="col-9">
+                    <input inputmode="decimal" class="o_input" t-ref="tfHeight" id="tf_height_0" type="text"/>
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col">
+                    <label class="o_form_label" for="tf_dimension_unit_0">Dim Unit</label>
+                </div>
+                <div class="col-9">
+                    <select class="o_input" t-ref="tfDimensionUnit" id="tf_dimension_unit_0">
+                        <option value=""></option>
+                        <option value="mm">mm</option>
+                        <option value="cm">cm</option>
+                        <option value="m">m</option>
+                        <option value="in">in</option>
+                        <option value="ft">ft</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col">
+                    <label class="o_form_label" for="tf_weight_0">Weight</label>
+                </div>
+                <div class="col-9">
+                    <input inputmode="decimal" class="o_input" t-ref="tfWeight" id="tf_weight_0" type="text"/>
+                </div>
+            </div>
+            <div class="row mb-2">
+                <div class="col">
+                    <label class="o_form_label" for="tf_weight_unit_0">Weight Unit</label>
+                </div>
+                <div class="col-9">
+                    <select class="o_input" t-ref="tfWeightUnit" id="tf_weight_unit_0">
+                        <option value=""></option>
+                        <option value="g">g</option>
+                        <option value="kg">kg</option>
+                        <option value="lb">lb</option>
+                    </select>
+                </div>
+            </div>
+        </xpath>
+        <xpath expr="//div[@class='row'][.//input[@t-ref='keepLines']]" position="replace">
+            <div class="d-none">
+                <input type="checkbox" t-ref="keepLines" id="keep_lines_0"/>
+            </div>
+        </xpath>
+    </t>
+</templates>

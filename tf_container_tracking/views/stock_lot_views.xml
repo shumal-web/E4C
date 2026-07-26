@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_stock_lot_tf_truck_out" model="ir.actions.server">
+        <field name="name">Truck Out</field>
+        <field name="model_id" ref="stock.model_stock_lot"/>
+        <field name="binding_model_id" ref="stock.model_stock_lot"/>
+        <field name="binding_view_types">list,form</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_tf_truck_out_selected()</field>
+    </record>
+
+    <record id="view_stock_lot_form_tf_container_link" model="ir.ui.view">
+        <field name="name">stock.lot.form.tf.container.link</field>
+        <field name="model">stock.lot</field>
+        <field name="inherit_id" ref="tf_serial_quote_attributes.view_stock_lot_form_tf_fields"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet//group" position="inside">
+                <group string="Container Link">
+                    <field name="tf_is_container_lot" invisible="1"/>
+                    <field name="tf_origin_sale_order_id" readonly="1"/>
+                    <field name="tf_container_lot_id" invisible="tf_is_container_lot"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

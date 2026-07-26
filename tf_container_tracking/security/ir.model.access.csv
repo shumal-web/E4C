@@ -1,0 +1,10 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_tf_dispatch_ticket_user,tf.dispatch.ticket.user,model_tf_dispatch_ticket,stock.group_stock_user,1,1,1,0
+access_tf_dispatch_ticket_manager,tf.dispatch.ticket.manager,model_tf_dispatch_ticket,stock.group_stock_manager,1,1,1,1
+access_tf_dispatch_trailer_user,tf.dispatch.trailer.user,model_tf_dispatch_trailer,stock.group_stock_user,1,1,1,0
+access_tf_dispatch_trailer_manager,tf.dispatch.trailer.manager,model_tf_dispatch_trailer,stock.group_stock_manager,1,1,1,1
+access_tf_dispatch_truck_user,tf.dispatch.truck.user,model_tf_dispatch_truck,stock.group_stock_user,1,1,1,0
+access_tf_dispatch_truck_manager,tf.dispatch.truck.manager,model_tf_dispatch_truck,stock.group_stock_manager,1,1,1,1
+access_tf_dispatch_driver_user,tf.dispatch.driver.user,model_tf_dispatch_driver,stock.group_stock_user,1,1,1,0
+access_tf_dispatch_driver_manager,tf.dispatch.driver.manager,model_tf_dispatch_driver,stock.group_stock_manager,1,1,1,1
+access_tf_sale_serial_wizard_assign_line_user,tf.sale.serial.wizard.assign.line.user,model_tf_sale_serial_wizard_assign_line,base.group_user,1,1,1,1

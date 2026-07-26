@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="report_receipt_serial_labels">
+        <t t-call="web.basic_layout">
+            <t t-foreach="docs" t-as="picking">
+                <t t-set="serial_lines"
+                   t-value="picking.move_line_ids.filtered(lambda ml: ml.product_id.tracking == 'serial' and (ml.lot_id or ml.lot_name))"/>
+
+                <t t-foreach="serial_lines" t-as="ml">
+                    <t t-set="serial" t-value="ml.lot_id.name if ml.lot_id else ml.lot_name"/>
+                    <t t-set="attrs_src" t-value="ml.lot_id if (picking.state in ('done', 'cancel') and ml.lot_id) else ml"/>
+
+                    <div class="page">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                            <div style="max-width:70%;">
+                                <div style="font-size: 26px; font-weight: 700; line-height: 1.1;" t-out="serial"/>
+                                <div style="margin-top: 4px; font-size: 13px;">
+                                    <div><strong>Product:</strong> <span t-out="ml.product_id.display_name"/></div>
+                                    <div><strong>Receipt:</strong> <span t-out="picking.name"/></div>
+                                    <div t-if="picking.origin"><strong>Order Ref:</strong> <span t-out="picking.origin"/></div>
+                                </div>
+                            </div>
+                            <div style="min-width: 40mm; text-align: right;">
+                                <span t-out="serial"
+                                      t-options="{'widget': 'barcode', 'img_style': 'width:40mm; height:18mm'}"/>
+                            </div>
+                        </div>
+
+                        <table class="table table-sm mt-3" style="font-size: 12px;">
+                            <tbody>
+                                <tr>
+                                    <th style="width: 35%;">Dimensions</th>
+                                    <td>
+                                        <t t-out="attrs_src.tf_length or ''"/> x
+                                        <t t-out="attrs_src.tf_width or ''"/> x
+                                        <t t-out="attrs_src.tf_height or ''"/>
+                                        <t t-if="attrs_src.tf_dimension_unit">
+                                            <span t-out="attrs_src.tf_dimension_unit"/>
+                                        </t>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Weight</th>
+                                    <td>
+                                        <t t-out="attrs_src.tf_weight or ''"/>
+                                        <t t-if="attrs_src.tf_weight_unit">
+                                            <span t-out="attrs_src.tf_weight_unit"/>
+                                        </t>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Storage Rate</th>
+                                    <td><t t-out="attrs_src.tf_storage_rate or ''"/></td>
+                                </tr>
+                                <tr>
+                                    <th>Location</th>
+                                    <td><t t-out="attrs_src.tf_location_note or ''"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style="page-break-after: always;"></div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>
+

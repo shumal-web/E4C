@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="product_template_form_view_tf_container_flags" model="ir.ui.view">
+        <field name="name">product.template.form.tf.container.flags</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="stock.view_template_property_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='operations']" position="inside">
+                <separator string="Container Setup"/>
+                <field name="tf_is_container"/>
+                <field name="tf_requires_container" invisible="tf_is_container"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

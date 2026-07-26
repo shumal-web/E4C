@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+      Custom Detailed Operations view for stock.move.line.
+      We force this view from python (stock.move.action_show_details) so it works in Odoo 19
+      even if Odoo changes the default view used by the modal.
+    -->
+    <record id="view_tf_move_line_detailed_operation_list" model="ir.ui.view">
+        <field name="name">stock.move.line.detailed.operations.tf</field>
+        <field name="model">stock.move.line</field>
+        <field name="arch" type="xml">
+            <list string="Detailed Operations" editable="bottom">
+                <field name="move_id" invisible="1"/>
+                <field name="picking_id" invisible="1"/>
+                <field name="product_id" invisible="1"/>
+                <field name="tf_allow_receipt_edit" invisible="1"/>
+
+                <!-- Incoming receipts: editable serial text (lot_name) -->
+                <field name="lot_name" string="Lot/Serial Number"
+                       invisible="picking_id.picking_type_code != 'incoming'"
+                       readonly="picking_id.state in ('done','cancel')"/>
+
+                <!-- Internal / Outgoing: choose existing lot -->
+                <field name="lot_id" string="Lot/Serial Number"
+                       invisible="picking_id.picking_type_code == 'incoming'"/>
+
+                <!-- Attributes (editable only on incoming receipts before done) -->
+                <field name="tf_length" string="L" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_width" string="W" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_height" string="H" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_dimension_unit" string="Units" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_weight" string="Weight" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_weight_unit" string="Units" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_storage_rate" string="Storage Rate" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_location_note" string="Location" readonly="not tf_allow_receipt_edit"/>
+
+                <field name="location_dest_id" string="Store To"/>
+                <field name="quantity" string="Quantity"/>
+                <field name="product_uom_id" string="Unit" readonly="1"/>
+            </list>
+        </field>
+    </record>
+
+</odoo>

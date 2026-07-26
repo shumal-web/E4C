@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_tf_serial_storage_sheet" model="ir.actions.report">
+        <field name="name">Serial Storage Sheet</field>
+        <field name="model">stock.lot</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">tf_serial_quote_attributes.report_serial_storage_sheet</field>
+        <field name="report_file">tf_serial_quote_attributes.report_serial_storage_sheet</field>
+        <field name="print_report_name">'Serial - %s' % (object.name)</field>
+    </record>
+</odoo>

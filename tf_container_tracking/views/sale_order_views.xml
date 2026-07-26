@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_order_form_tf_container_tracking_link" model="ir.ui.view">
+        <field name="name">sale.order.form.tf.container.tracking.link</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_open_tf_container_tracking"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-cube"
+                        invisible="tf_container_tracking_count == 0 or tf_flow_state not in ['approved', 'completed']">
+                    <field name="tf_container_tracking_count" string="Containers" widget="statinfo"/>
+                </button>
+                <button name="action_open_tf_dispatch_tickets"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-truck"
+                        invisible="tf_dispatch_ticket_count == 0 or tf_flow_state not in ['approved', 'completed']">
+                    <field name="tf_dispatch_ticket_count" string="Dispatch Tickets" widget="statinfo"/>
+                </button>
+            </xpath>
+
+            <xpath expr="//header" position="inside">
+                <button name="action_tf_submit_for_approval"
+                        type="object"
+                        string="For Approval"
+                        class="btn-secondary"
+                        invisible="1"/>
+                <button name="action_tf_approve"
+                        type="object"
+                        string="Approve"
+                        class="btn-primary"
+                        groups="stock.group_stock_manager"
+                        invisible="tf_flow_state != 'to_approve'"/>
+                <button name="action_tf_create_export_flow"
+                        type="object"
+                        string="Export"
+                        class="btn-secondary"
+                        invisible="tf_shipment_type != 'export' or tf_flow_state != 'approved'"/>
+                <field name="tf_flow_state" widget="statusbar" statusbar_visible="draft,to_approve,approved,completed"/>
+            </xpath>
+
+            <xpath expr="//button[@id='create_invoice']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//button[@id='create_invoice_percentage']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//button[@name='%(sale.action_view_sale_advance_payment_inv)d']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+
+            <xpath expr="//sheet/group/group[1]" position="inside">
+                <field name="tf_shipment_type"/>
+                <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color', 'no_create_edit': True}"/>
+            </xpath>
+
+            <xpath expr="//group[@name='order_details']/field[@name='date_order'][last()]" position="after">
+                <field name="tf_address_note" widget="text" placeholder="Address details..."/>
+                <field name="tf_special_instructions" widget="text" placeholder="Special instructions..."/>
+            </xpath>
+
+            <xpath expr="//group[@name='sales_person']/field[@name='tag_ids']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+
+            <xpath expr="//label[@for='pricelist_id']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//div[field[@name='pricelist_id']]" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//field[@name='payment_term_id']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_order_form_tf_container_tracking_sale_stock_delivery_gate" model="ir.ui.view">
+        <field name="name">sale.order.form.tf.container.tracking.delivery.gate</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale_stock.view_order_form_inherit_sale_stock"/>
+        <field name="arch" type="xml">
+            <xpath expr="//button[@name='action_view_delivery']" position="attributes">
+                <attribute name="invisible">delivery_count == 0 or tf_flow_state not in ['approved', 'completed']</attribute>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_order_tree_tf_container_tracking" model="ir.ui.view">
+        <field name="name">sale.order.list.tf.container.tracking</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/button[@name='%(sale.action_view_sale_advance_payment_inv)d']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//field[@name='state']" position="replace">
+                <field name="tf_flow_state"
+                       string="Flow Status"
+                       widget="badge"
+                       decoration-info="tf_flow_state == 'draft'"
+                       decoration-warning="tf_flow_state == 'to_approve'"
+                       decoration-success="tf_flow_state == 'approved'"
+                       decoration-primary="tf_flow_state == 'completed'"
+                       optional="show"/>
+            </xpath>
+            <xpath expr="//field[@name='partner_id']" position="after">
+                <field name="tf_shipment_type" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_quotation_tree_with_onboarding_tf_container_tracking" model="ir.ui.view">
+        <field name="name">sale.order.quotation.list.tf.container.tracking</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_quotation_tree_with_onboarding"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header/button[@name='%(sale.action_view_sale_advance_payment_inv)d']" position="attributes">
+                <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//field[@name='state']" position="replace">
+                <field name="tf_flow_state"
+                       string="Flow Status"
+                       widget="badge"
+                       decoration-info="tf_flow_state == 'draft'"
+                       decoration-warning="tf_flow_state == 'to_approve'"
+                       decoration-success="tf_flow_state == 'approved'"
+                       decoration-primary="tf_flow_state == 'completed'"
+                       optional="show"/>
+            </xpath>
+            <xpath expr="//field[@name='partner_id']" position="after">
+                <field name="tf_shipment_type" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_sales_order_filter_tf_container_tracking" model="ir.ui.view">
+        <field name="name">sale.order.search.tf.container.tracking</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_sales_order_filter"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='team_id']" position="after">
+                <field name="tf_flow_state"/>
+                <field name="tf_shipment_type"/>
+            </xpath>
+            <xpath expr="//filter[@name='my_sale_orders_filter']" position="after">
+                <separator/>
+                <filter name="tf_flow_draft" string="Draft Flow" domain="[('tf_flow_state', '=', 'draft')]"/>
+                <filter name="tf_flow_to_approve" string="For Approval" domain="[('tf_flow_state', '=', 'to_approve')]"/>
+                <filter name="tf_flow_approved" string="Approved" domain="[('tf_flow_state', '=', 'approved')]"/>
+                <filter name="tf_flow_completed" string="Completed" domain="[('tf_flow_state', '=', 'completed')]"/>
+                <separator/>
+                <filter name="tf_flow_import" string="Import" domain="[('tf_shipment_type', '=', 'import')]"/>
+                <filter name="tf_flow_export" string="Export" domain="[('tf_shipment_type', '=', 'export')]"/>
+            </xpath>
+            <xpath expr="//group" position="inside">
+                <filter name="group_tf_flow_state" string="Flow Status" context="{'group_by': 'tf_flow_state'}"/>
+                <filter name="group_tf_shipment_type" string="Flow Type" context="{'group_by': 'tf_shipment_type'}"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

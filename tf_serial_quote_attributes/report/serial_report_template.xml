@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="report_serial_storage_sheet">
+        <t t-call="web.external_layout">
+            <t t-foreach="docs" t-as="lot">
+                <div class="page">
+                    <h2>Serial Storage Sheet</h2>
+
+                    <table class="table table-sm">
+                        <tr><th>Product</th><td><span t-esc="lot.product_id.display_name"/></td></tr>
+                        <tr><th>Serial</th><td><span t-esc="lot.name"/></td></tr>
+
+                        <tr><th>Length</th><td><span t-esc="lot.tf_length"/> <span t-esc="lot.tf_dimension_unit"/></td></tr>
+                        <tr><th>Width</th><td><span t-esc="lot.tf_width"/> <span t-esc="lot.tf_dimension_unit"/></td></tr>
+                        <tr><th>Height</th><td><span t-esc="lot.tf_height"/> <span t-esc="lot.tf_dimension_unit"/></td></tr>
+
+                        <tr><th>Weight</th><td><span t-esc="lot.tf_weight"/> <span t-esc="lot.tf_weight_unit"/></td></tr>
+                        <tr><th>Storage Rate</th><td><span t-esc="lot.tf_storage_rate"/></td></tr>
+                        <tr><th>Location (Text)</th><td><span t-esc="lot.tf_location_note"/></td></tr>
+
+                        <tr><th>Reception Date</th><td><span t-esc="lot.tf_reception_date"/></td></tr>
+                        <tr><th>Delivery Date</th><td><span t-esc="lot.tf_delivery_date"/></td></tr>
+                        <tr><th>Day Counter</th><td><span t-esc="lot.tf_day_counter"/></td></tr>
+                    </table>
+                </div>
+
+                <!-- Force 1 page per serial -->
+                <div style="page-break-after: always;"></div>
+            </t>
+        </t>
+    </template>
+</odoo>

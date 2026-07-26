@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_tf_sale_serial_wizard_form_piece_container_assign" model="ir.ui.view">
+        <field name="name">tf.sale.serial.wizard.form.piece.container.assign</field>
+        <field name="model">tf.sale.serial.wizard</field>
+        <field name="inherit_id" ref="tf_serial_quote_attributes.view_tf_sale_serial_wizard_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group" position="inside">
+                <field name="tf_has_container_plans" invisible="1"/>
+                <field name="tf_requires_container" invisible="1"/>
+                <field name="tf_show_assign_workflow" invisible="1"/>
+            </xpath>
+
+            <xpath expr="//field[@name='qty']" position="attributes">
+                <attribute name="readonly">0</attribute>
+            </xpath>
+
+            <xpath expr="//group" position="after">
+                <group string="Assign Cases to Containers" invisible="not tf_show_assign_workflow">
+                    <group>
+                        <field name="assign_line_ids">
+                            <list editable="bottom" create="false" delete="false">
+                                <field name="sequence" column_invisible="1" force_save="1"/>
+                                <field name="container_plan_id" readonly="1" force_save="1"/>
+                                <field name="case_qty" force_save="1"/>
+                            </list>
+                        </field>
+                    </group>
+                    <group string="Common Attributes">
+                        <field name="tf_assign_length" force_save="1"/>
+                        <field name="tf_assign_width" force_save="1"/>
+                        <field name="tf_assign_height" force_save="1"/>
+                        <field name="tf_assign_dimension_unit" force_save="1"/>
+                        <field name="tf_assign_weight" force_save="1"/>
+                        <field name="tf_assign_weight_unit" force_save="1"/>
+                    </group>
+                </group>
+            </xpath>
+
+            <xpath expr="(//field[@name='line_ids']/list/field[@name='tf_description'] | //field[@name='line_ids']/list/field[@name='serial_name'])[last()]" position="after">
+                <field name="plan_id" column_invisible="1"/>
+                <field name="order_id" column_invisible="1"/>
+                <field name="tf_container_plan_id"
+                       string="Container Serial"
+                       domain="[('order_id', '=', parent.order_id), ('tf_is_container_product', '=', True)]"
+                       can_create="0"
+                       can_write="0"
+                       context="{'create': False}"
+                       options="{'no_create': True, 'no_create_edit': True, 'no_open': True}"/>
+            </xpath>
+
+            <xpath expr="//footer/button[@name='action_generate_serials']" position="attributes">
+                <attribute name="invisible">tf_show_assign_workflow</attribute>
+            </xpath>
+
+            <xpath expr="//footer/button[@name='action_apply']" position="before">
+                <button name="action_assign"
+                        type="object"
+                        string="Assign"
+                        invisible="not tf_show_assign_workflow"
+                        class="btn-primary"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_tf_sale_serial_wizard_form_container" model="ir.ui.view">
+        <field name="name">tf.sale.serial.wizard.form.container.dedicated</field>
+        <field name="model">tf.sale.serial.wizard</field>
+        <field name="inherit_id" eval="False"/>
+        <field name="arch" type="xml">
+            <form string="Container Details">
+                <group>
+                    <field name="order_line_id" invisible="1"/>
+                    <field name="order_id" readonly="1"/>
+                    <field name="product_id" readonly="1"/>
+                    <field name="qty" readonly="1"/>
+                    <field name="tf_is_container_product" invisible="1"/>
+                </group>
+
+                <field name="line_ids">
+                    <list editable="bottom">
+                        <field name="plan_id" column_invisible="1"/>
+                        <field name="sequence"/>
+                        <field name="serial_name"/>
+                        <field name="tf_container_number"/>
+                        <field name="tf_internal_status"/>
+                        <field name="tf_port_to_destuff"/>
+                        <field name="tf_container_status"/>
+                        <field name="tf_container_location"/>
+                        <field name="tf_eta"/>
+                        <field name="tf_lfd"/>
+                        <field name="tf_ssl"/>
+                        <field name="tf_container_type"/>
+                        <field name="tf_chassis_no"/>
+                        <field name="tf_pubk_no"/>
+                    </list>
+                </field>
+
+                <footer>
+                    <button name="action_apply" type="object" string="Apply" class="btn-primary"/>
+                    <button string="Cancel" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

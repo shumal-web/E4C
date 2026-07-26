@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Add POD + Transporter fields to picking -->
+    <record id="view_picking_form_tf_fields" model="ir.ui.view">
+        <field name="name">stock.picking.form.tf.fields</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <!-- Ensure helper field is present for modifiers like readonly="not is_date_editable" -->
+            <xpath expr="//sheet" position="inside">
+                <field name="is_date_editable" invisible="1"/>
+            </xpath>
+            <xpath expr="//sheet//group" position="inside">
+                <group string="Transport">
+                    <field name="tf_transporter"/>
+                    <!-- Odoo 17+ : use invisible attribute expression instead of attrs -->
+                    <field name="tf_pod" invisible="picking_type_code != 'outgoing'"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Add attribute fields to Detailed Operations (stock.move.line list/tree) -->
+    <record id="view_move_line_detailed_operation_tree_tf_fields" model="ir.ui.view">
+        <field name="name">stock.move.line.detailed.operation.tree.tf.fields</field>
+        <field name="model">stock.move.line</field>
+        <field name="inherit_id" ref="stock.view_stock_move_line_detailed_operation_tree"/>
+        <field name="arch" type="xml">
+
+            <!-- Odoo 19 may use <list> instead of <tree>, keep both -->
+            <xpath expr="(//list | //tree)" position="inside">
+                <field name="tf_allow_receipt_edit" column_invisible="True"/>
+                <!-- Only editable on incoming receipts before done; readonly otherwise -->
+                <field name="tf_description" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_length" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_width" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_height" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_dimension_unit" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_weight" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_weight_unit" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_storage_rate" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_location_note" readonly="not tf_allow_receipt_edit"/>
+            </xpath>
+
+        </field>
+    </record>
+
+    <!-- Move details popup uses operation_tree via list_view_ref; add same columns there -->
+    <record id="view_move_line_operation_tree_tf_fields" model="ir.ui.view">
+        <field name="name">stock.move.line.operation.tree.tf.fields</field>
+        <field name="model">stock.move.line</field>
+        <field name="inherit_id" ref="stock.view_stock_move_line_operation_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//list" position="inside">
+                <field name="tf_allow_receipt_edit" column_invisible="True"/>
+            </xpath>
+            <xpath expr="//field[@name='lot_name']" position="after">
+                <field name="tf_description" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_length" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_width" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_height" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_dimension_unit" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_weight" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_weight_unit" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_storage_rate" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_location_note" readonly="not tf_allow_receipt_edit"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

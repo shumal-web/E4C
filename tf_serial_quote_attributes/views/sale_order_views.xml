@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_order_form_tf_serial_details" model="ir.ui.view">
+        <field name="name">sale.order.form.tf.serial.details</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+
+            <!-- Odoo 19 uses <list>, older uses <tree> -->
+            <xpath expr="(//field[@name='order_line']//list | //field[@name='order_line']//tree)" position="inside">
+                <button name="action_open_tf_serial_wizard"
+                        type="object"
+                        string="Details"
+                        icon="fa-list"
+                        class="btn-link"
+                        invisible="not tf_is_serial_tracked"/>
+                <field name="tf_serial_plan_count"
+                       string="Serials"
+                       readonly="1"
+                       invisible="not tf_is_serial_tracked"/>
+            </xpath>
+
+        </field>
+    </record>
+</odoo>

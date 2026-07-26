@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="seq_tf_dispatch_ticket" model="ir.sequence">
+        <field name="name">Dispatch Ticket</field>
+        <field name="code">tf.dispatch.ticket</field>
+        <field name="prefix">DSP/%(y)s/</field>
+        <field name="padding">5</field>
+        <field name="company_id" eval="False"/>
+    </record>
+
+    <record id="view_tf_dispatch_ticket_list" model="ir.ui.view">
+        <field name="name">tf.dispatch.ticket.list</field>
+        <field name="model">tf.dispatch.ticket</field>
+        <field name="arch" type="xml">
+            <list string="Dispatch Tickets"
+                  decoration-info="state == 'draft'"
+                  decoration-warning="state == 'sent'"
+                  decoration-primary="state == 'in_progress'"
+                  decoration-success="state == 'completed'"
+                  decoration-danger="state == 'cancel'">
+                <field name="name"/>
+                <field name="dispatch_date"/>
+                <field name="dispatch_type"/>
+                <field name="sale_order_id"/>
+                <field name="container_plan_id"/>
+                <field name="location_partner_id"/>
+                <field name="truck_id"/>
+                <field name="driver_id"/>
+                <field name="trailer_id"/>
+                <field name="trailer_current_location"/>
+                <field name="trailer_destination_location"/>
+                <field name="whatsapp_sent" widget="boolean_toggle"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'draft'"
+                       decoration-warning="state == 'sent'"
+                       decoration-primary="state == 'in_progress'"
+                       decoration-success="state == 'completed'"
+                       decoration-danger="state == 'cancel'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_tf_dispatch_ticket_form" model="ir.ui.view">
+        <field name="name">tf.dispatch.ticket.form</field>
+        <field name="model">tf.dispatch.ticket</field>
+        <field name="arch" type="xml">
+            <form string="Dispatch Ticket">
+                <header>
+                    <button name="action_send_whatsapp"
+                            type="object"
+                            string="Send WhatsApp"
+                            class="btn-secondary"
+                            invisible="state in ('completed', 'cancel')"/>
+                    <button name="action_mark_in_progress"
+                            type="object"
+                            string="Mark In Progress"
+                            class="btn-secondary"
+                            invisible="state in ('in_progress', 'completed', 'cancel')"/>
+                    <button name="action_complete"
+                            type="object"
+                            string="Complete"
+                            class="btn-primary"
+                            invisible="state in ('completed', 'cancel')"/>
+                    <button name="action_cancel"
+                            type="object"
+                            string="Cancel"
+                            class="btn-secondary"
+                            invisible="state in ('completed', 'cancel')"/>
+                    <button name="action_reset_to_draft"
+                            type="object"
+                            string="Reset to Draft"
+                            class="btn-secondary"
+                            groups="stock.group_stock_manager"
+                            invisible="state == 'draft'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,sent,in_progress,completed,cancel"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name" readonly="1"/>
+                            <field name="dispatch_type"/>
+                            <field name="sale_order_id"/>
+                            <field name="container_plan_id" domain="[('order_id', '=', sale_order_id), ('tf_is_container_product', '=', True)]"/>
+                            <field name="dispatch_date"/>
+                        </group>
+                        <group>
+                            <field name="location_partner_id"/>
+                            <field name="location_note"/>
+                            <field name="truck_id"/>
+                            <field name="driver_id"/>
+                            <field name="trailer_id"/>
+                            <field name="trailer_current_location"/>
+                            <field name="trailer_destination_location"/>
+                        </group>
+                    </group>
+                    <group string="WhatsApp">
+                        <field name="whatsapp_sent"/>
+                        <field name="whatsapp_sent_on" readonly="1"/>
+                        <field name="whatsapp_sent_by" readonly="1"/>
+                        <field name="whatsapp_message_preview" readonly="1"/>
+                    </group>
+                    <group string="Linked Documents">
+                        <field name="receiving_picking_id" readonly="1"/>
+                        <field name="internal_transfer_id" readonly="1"/>
+                        <field name="delivery_order_id" readonly="1"/>
+                    </group>
+                    <group>
+                        <field name="note"/>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_tf_dispatch_ticket_search" model="ir.ui.view">
+        <field name="name">tf.dispatch.ticket.search</field>
+        <field name="model">tf.dispatch.ticket</field>
+        <field name="arch" type="xml">
+            <search string="Dispatch Tickets">
+                <field name="name"/>
+                <field name="sale_order_id"/>
+                <field name="container_plan_id"/>
+                <field name="dispatch_type"/>
+                <field name="trailer_id"/>
+                <field name="driver_id"/>
+                <filter string="Draft" name="state_draft" domain="[('state', '=', 'draft')]"/>
+                <filter string="Sent" name="state_sent" domain="[('state', '=', 'sent')]"/>
+                <filter string="In Progress" name="state_in_progress" domain="[('state', '=', 'in_progress')]"/>
+                <filter string="Completed" name="state_completed" domain="[('state', '=', 'completed')]"/>
+                <group>
+                    <filter string="SO" name="group_so" domain="[]" context="{'group_by': 'sale_order_id'}"/>
+                    <filter string="Trailer" name="group_trailer" domain="[]" context="{'group_by': 'trailer_id'}"/>
+                    <filter string="State" name="group_state" domain="[]" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_tf_dispatch_ticket" model="ir.actions.act_window">
+        <field name="name">Dispatch Tickets</field>
+        <field name="res_model">tf.dispatch.ticket</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_tf_dispatch_ticket_search"/>
+    </record>
+
+    <record id="view_tf_dispatch_trailer_list" model="ir.ui.view">
+        <field name="name">tf.dispatch.trailer.list</field>
+        <field name="model">tf.dispatch.trailer</field>
+        <field name="arch" type="xml">
+            <list string="Trailers">
+                <field name="name"/>
+                <field name="current_location"/>
+                <field name="destination_location"/>
+                <field name="active"/>
+                <field name="note"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_tf_dispatch_trailer_form" model="ir.ui.view">
+        <field name="name">tf.dispatch.trailer.form</field>
+        <field name="model">tf.dispatch.trailer</field>
+        <field name="arch" type="xml">
+            <form string="Trailer">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="current_location"/>
+                        <field name="destination_location"/>
+                        <field name="active"/>
+                        <field name="note"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_tf_dispatch_trailer" model="ir.actions.act_window">
+        <field name="name">Trailers</field>
+        <field name="res_model">tf.dispatch.trailer</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_tf_dispatch_truck_list" model="ir.ui.view">
+        <field name="name">tf.dispatch.truck.list</field>
+        <field name="model">tf.dispatch.truck</field>
+        <field name="arch" type="xml">
+            <list string="Trucks">
+                <field name="name"/>
+                <field name="plate_no"/>
+                <field name="active"/>
+                <field name="note"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_tf_dispatch_truck_form" model="ir.ui.view">
+        <field name="name">tf.dispatch.truck.form</field>
+        <field name="model">tf.dispatch.truck</field>
+        <field name="arch" type="xml">
+            <form string="Truck">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="plate_no"/>
+                        <field name="active"/>
+                        <field name="note"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_tf_dispatch_truck" model="ir.actions.act_window">
+        <field name="name">Trucks</field>
+        <field name="res_model">tf.dispatch.truck</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <record id="view_tf_dispatch_driver_list" model="ir.ui.view">
+        <field name="name">tf.dispatch.driver.list</field>
+        <field name="model">tf.dispatch.driver</field>
+        <field name="arch" type="xml">
+            <list string="Drivers">
+                <field name="name"/>
+                <field name="phone"/>
+                <field name="active"/>
+                <field name="note"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_tf_dispatch_driver_form" model="ir.ui.view">
+        <field name="name">tf.dispatch.driver.form</field>
+        <field name="model">tf.dispatch.driver</field>
+        <field name="arch" type="xml">
+            <form string="Driver">
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="phone"/>
+                        <field name="active"/>
+                        <field name="note"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_tf_dispatch_driver" model="ir.actions.act_window">
+        <field name="name">Drivers</field>
+        <field name="res_model">tf.dispatch.driver</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_tf_dispatch_root"
+              name="Dispatch"
+              parent="stock.menu_stock_warehouse_mgmt"
+              sequence="95"/>
+    <menuitem id="menu_tf_dispatch_tickets"
+              name="Dispatch Tickets"
+              parent="menu_tf_dispatch_root"
+              action="action_tf_dispatch_ticket"
+              sequence="10"/>
+    <menuitem id="menu_tf_dispatch_trailers"
+              name="Trailers"
+              parent="menu_tf_dispatch_root"
+              action="action_tf_dispatch_trailer"
+              sequence="20"/>
+    <menuitem id="menu_tf_dispatch_trucks"
+              name="Trucks"
+              parent="menu_tf_dispatch_root"
+              action="action_tf_dispatch_truck"
+              sequence="30"/>
+    <menuitem id="menu_tf_dispatch_drivers"
+              name="Drivers"
+              parent="menu_tf_dispatch_root"
+              action="action_tf_dispatch_driver"
+              sequence="40"/>
+</odoo>

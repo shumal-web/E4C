@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_move_line_detailed_operation_tree_tf_container" model="ir.ui.view">
+        <field name="name">stock.move.line.detailed.operation.tree.tf.container</field>
+        <field name="model">stock.move.line</field>
+        <field name="inherit_id" ref="tf_serial_quote_attributes.view_move_line_detailed_operation_tree_tf_fields"/>
+        <field name="arch" type="xml">
+            <xpath expr="(//list | //tree)" position="inside">
+                <field name="tf_is_container_product" column_invisible="True"/>
+                <field name="tf_allowed_lot_ids" column_invisible="True"/>
+                <field name="tf_hide_container_columns" column_invisible="True"/>
+            </xpath>
+            <xpath expr="//field[@name='lot_id']" position="attributes">
+                <attribute name="domain">[('id', 'in', tf_allowed_lot_ids)]</attribute>
+            </xpath>
+            <xpath expr="//field[@name='tf_length']" position="attributes">
+                <attribute name="invisible">tf_is_container_product</attribute>
+            </xpath>
+            <xpath expr="(//field[@name='tf_description'] | //field[@name='tf_length'])[1]" position="attributes">
+                <attribute name="invisible">tf_is_container_product</attribute>
+            </xpath>
+            <xpath expr="//field[@name='tf_width']" position="attributes">
+                <attribute name="invisible">tf_is_container_product</attribute>
+            </xpath>
+            <xpath expr="//field[@name='tf_height']" position="attributes">
+                <attribute name="invisible">tf_is_container_product</attribute>
+            </xpath>
+            <xpath expr="//field[@name='tf_dimension_unit']" position="attributes">
+                <attribute name="invisible">tf_is_container_product</attribute>
+            </xpath>
+            <xpath expr="//field[@name='tf_weight']" position="attributes">
+                <attribute name="invisible">tf_is_container_product</attribute>
+            </xpath>
+            <xpath expr="//field[@name='tf_weight_unit']" position="attributes">
+                <attribute name="invisible">tf_is_container_product</attribute>
+            </xpath>
+            <xpath expr="//field[@name='tf_storage_rate']" position="attributes">
+                <attribute name="invisible">tf_is_container_product</attribute>
+            </xpath>
+            <xpath expr="//field[@name='tf_location_note']" position="attributes">
+                <attribute name="invisible">tf_is_container_product</attribute>
+            </xpath>
+            <xpath expr="//field[@name='tf_location_note']" position="after">
+                <field name="tf_container_plan_id"
+                       invisible="tf_hide_container_columns or tf_is_container_product"
+                       readonly="not tf_allow_receipt_edit"
+                       can_create="0"
+                       can_write="0"
+                       context="{'create': False}"
+                       options="{'no_create': True, 'no_create_edit': True, 'no_open': True}"/>
+                <field name="tf_internal_status" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_port_to_destuff" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_container_status" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_container_location" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_eta" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_lfd" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_ssl" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_container_type" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_chassis_no" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_pubk_no" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_move_line_operation_tree_tf_container" model="ir.ui.view">
+        <field name="name">stock.move.line.operation.tree.tf.container</field>
+        <field name="model">stock.move.line</field>
+        <field name="inherit_id" ref="tf_serial_quote_attributes.view_move_line_operation_tree_tf_fields"/>
+        <field name="arch" type="xml">
+            <xpath expr="//list" position="inside">
+                <field name="tf_is_container_product" column_invisible="True"/>
+                <field name="tf_allowed_lot_ids" column_invisible="True"/>
+                <field name="tf_hide_container_columns" column_invisible="True"/>
+            </xpath>
+            <xpath expr="//field[@name='lot_id']" position="attributes">
+                <attribute name="domain">[('id', 'in', tf_allowed_lot_ids)]</attribute>
+            </xpath>
+            <xpath expr="//field[@name='tf_length']" position="attributes">
+                <attribute name="invisible">tf_is_container_product</attribute>
+            </xpath>
+            <xpath expr="(//field[@name='tf_description'] | //field[@name='tf_length'])[1]" position="attributes">
+                <attribute name="invisible">tf_is_container_product</attribute>
+            </xpath>
+            <xpath expr="//field[@name='tf_width']" position="attributes">
+                <attribute name="invisible">tf_is_container_product</attribute>
+            </xpath>
+            <xpath expr="//field[@name='tf_height']" position="attributes">
+                <attribute name="invisible">tf_is_container_product</attribute>
+            </xpath>
+            <xpath expr="//field[@name='tf_dimension_unit']" position="attributes">
+                <attribute name="invisible">tf_is_container_product</attribute>
+            </xpath>
+            <xpath expr="//field[@name='tf_weight']" position="attributes">
+                <attribute name="invisible">tf_is_container_product</attribute>
+            </xpath>
+            <xpath expr="//field[@name='tf_weight_unit']" position="attributes">
+                <attribute name="invisible">tf_is_container_product</attribute>
+            </xpath>
+            <xpath expr="//field[@name='tf_storage_rate']" position="attributes">
+                <attribute name="invisible">tf_is_container_product</attribute>
+            </xpath>
+            <xpath expr="//field[@name='tf_location_note']" position="attributes">
+                <attribute name="invisible">tf_is_container_product</attribute>
+            </xpath>
+            <xpath expr="//field[@name='tf_location_note']" position="after">
+                <field name="tf_container_plan_id"
+                       invisible="tf_hide_container_columns or tf_is_container_product"
+                       readonly="not tf_allow_receipt_edit"
+                       can_create="0"
+                       can_write="0"
+                       context="{'create': False}"
+                       options="{'no_create': True, 'no_create_edit': True, 'no_open': True}"/>
+                <field name="tf_internal_status" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_port_to_destuff" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_container_status" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_container_location" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_eta" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_lfd" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_ssl" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_container_type" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_chassis_no" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_pubk_no" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,1 @@
+from . import sale_serial_wizard

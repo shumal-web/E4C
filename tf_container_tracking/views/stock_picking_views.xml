@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_picking_form_tf_sale_order_link" model="ir.ui.view">
+        <field name="name">stock.picking.form.tf.sale.order.link</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="tf_serial_quote_attributes.view_picking_form_tf_fields"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_tf_truck_out"
+                        type="object"
+                        string="Truck Out"
+                        class="btn-secondary"
+                        invisible="state != 'done' or not tf_container_plan_id or picking_type_code != 'incoming'"/>
+            </xpath>
+            <xpath expr="//field[@name='origin']" position="after">
+                <field name="tf_sale_order_id"
+                       options="{'no_create': True}"
+                       readonly="state in ['cancel', 'done']"/>
+                <field name="tf_container_number" readonly="1"/>
+                <field name="tf_flow_kind" readonly="1"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_picking_list_tf_sale_order_link" model="ir.ui.view">
+        <field name="name">stock.picking.list.tf.sale.order.link</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.vpicktree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='origin']" position="after">
+                <field name="tf_sale_order_id" optional="show"/>
+                <field name="tf_container_number" optional="show"/>
+                <field name="tf_flow_kind" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_tf_inventory_documents" model="ir.actions.act_window">
+        <field name="name">Inventory Documents</field>
+        <field name="res_model">stock.picking</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('tf_sale_order_id', '!=', False)]</field>
+        <field name="context">{}</field>
+    </record>
+
+    <menuitem id="menu_tf_inventory_documents"
+              name="Inventory Documents"
+              parent="stock.menu_stock_warehouse_mgmt"
+              action="action_tf_inventory_documents"
+              sequence="92"/>
+</odoo>

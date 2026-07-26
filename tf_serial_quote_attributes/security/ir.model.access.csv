@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_tf_sale_serial_plan_user,tf.sale.serial.plan user,model_tf_sale_serial_plan,stock.group_stock_user,1,1,1,1
+access_tf_sale_serial_plan_sales,tf.sale.serial.plan sales,model_tf_sale_serial_plan,sales_team.group_sale_salesman,1,1,1,1
+access_tf_sale_serial_wizard_user,tf.sale.serial.wizard user,model_tf_sale_serial_wizard,base.group_user,1,1,1,1
+access_tf_sale_serial_wizard_line_user,tf.sale.serial.wizard.line user,model_tf_sale_serial_wizard_line,base.group_user,1,1,1,1

@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_tf_container_dashboard_tree" model="ir.ui.view">
+        <field name="name">tf.container.dashboard.tree</field>
+        <field name="model">tf.sale.serial.plan</field>
+        <field name="arch" type="xml">
+            <list string="Container Tracking"
+                  create="false"
+                  decoration-info="tf_container_status == 'on_water'"
+                  decoration-warning="tf_container_status == 'at_port'"
+                  decoration-success="tf_container_status == 'ready'"
+                  decoration-primary="tf_container_status == 'picked_up'"
+                  decoration-muted="tf_container_status == 'de_stuffed'"
+                  decoration-danger="tf_container_status == 'returned'">
+                <field name="order_name" string="SO"/>
+                <field name="serial_name" string="Serial"/>
+                <field name="tf_container_number"/>
+                <button name="action_truck_out_from_inventory"
+                        type="object"
+                        string="Truck Out"
+                        class="btn-link"/>
+                <field name="tf_dispatch_progress" widget="badge"
+                       decoration-info="tf_dispatch_progress == 'not_dispatched'"
+                       decoration-primary="tf_dispatch_progress == 'delivery'"
+                       decoration-warning="tf_dispatch_progress == 'return'"
+                       decoration-success="tf_dispatch_progress == 'completed'"/>
+                <field name="tf_internal_status"
+                       widget="badge"
+                       decoration-info="tf_internal_status == 'for_approval'"
+                       decoration-muted="tf_internal_status == 'pickup'"
+                       decoration-primary="tf_internal_status == 'tracking'"
+                       decoration-warning="tf_internal_status == 'planning'"
+                       decoration-success="tf_internal_status == 'dispatch'"/>
+                <field name="tf_port_to_destuff"/>
+                <field name="tf_container_status"
+                       widget="badge"
+                       decoration-info="tf_container_status == 'on_water'"
+                       decoration-warning="tf_container_status == 'at_port'"
+                       decoration-success="tf_container_status == 'ready'"
+                       decoration-primary="tf_container_status == 'picked_up'"
+                       decoration-muted="tf_container_status == 'de_stuffed'"
+                       decoration-danger="tf_container_status == 'returned'"/>
+                <field name="tf_container_location"/>
+                <field name="tf_eta"/>
+                <field name="tf_lfd"/>
+                <field name="tf_ssl"/>
+                <field name="tf_container_type"/>
+                <field name="tf_chassis_no"/>
+                <field name="tf_pubk_no"/>
+                <field name="tf_piece_count" sum="Pieces"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_tf_container_dashboard_form" model="ir.ui.view">
+        <field name="name">tf.container.dashboard.form</field>
+        <field name="model">tf.sale.serial.plan</field>
+        <field name="arch" type="xml">
+            <form string="Container Tracking">
+                <header>
+                    <button name="action_receive_container"
+                            type="object"
+                            string="Import"
+                            class="btn-secondary"
+                            groups="stock.group_stock_user"
+                            invisible="not tf_is_container_product"/>
+                    <button name="action_set_for_approval"
+                            type="object"
+                            string="Submit For Approval"
+                            class="btn-secondary"
+                            groups="stock.group_stock_manager"
+                            invisible="tf_internal_status == 'for_approval'"/>
+                    <button name="action_approve_internal_status"
+                            type="object"
+                            string="Move To Tracking"
+                            class="btn-primary"
+                            groups="stock.group_stock_manager"
+                            invisible="tf_internal_status != 'for_approval'"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_linked_pickings"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-exchange"
+                                invisible="tf_linked_picking_count == 0">
+                            <field name="tf_linked_picking_count" string="Inventory Docs" widget="statinfo"/>
+                        </button>
+                        <button name="action_open_dispatch_tickets"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-truck"
+                                invisible="tf_dispatch_ticket_count == 0">
+                            <field name="tf_dispatch_ticket_count" string="Dispatch Tickets" widget="statinfo"/>
+                        </button>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="order_id" readonly="1"/>
+                            <field name="order_line_id" readonly="1"/>
+                            <field name="serial_name"/>
+                            <field name="tf_container_number"/>
+                        </group>
+                        <group>
+                            <field name="tf_dispatch_progress" widget="badge"
+                                   readonly="1"
+                                   decoration-info="tf_dispatch_progress == 'not_dispatched'"
+                                   decoration-primary="tf_dispatch_progress == 'delivery'"
+                                   decoration-warning="tf_dispatch_progress == 'return'"
+                                   decoration-success="tf_dispatch_progress == 'completed'"/>
+                            <field name="tf_internal_status" widget="badge"
+                                   readonly="1"
+                                   decoration-info="tf_internal_status == 'for_approval'"
+                                   decoration-muted="tf_internal_status == 'pickup'"
+                                   decoration-primary="tf_internal_status == 'tracking'"
+                                   decoration-warning="tf_internal_status == 'planning'"
+                                   decoration-success="tf_internal_status == 'dispatch'"/>
+                            <field name="tf_container_status"/>
+                            <field name="tf_piece_count" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group>
+                            <field name="tf_port_to_destuff"/>
+                            <field name="tf_container_location"/>
+                            <field name="tf_ready_on"/>
+                            <field name="tf_ssl"/>
+                            <field name="tf_container_type"/>
+                        </group>
+                        <group>
+                            <field name="tf_eta"/>
+                            <field name="tf_lfd"/>
+                            <field name="tf_chassis_no"/>
+                            <field name="tf_pubk_no"/>
+                        </group>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_tf_container_dashboard_search" model="ir.ui.view">
+        <field name="name">tf.container.dashboard.search</field>
+        <field name="model">tf.sale.serial.plan</field>
+        <field name="arch" type="xml">
+            <search string="Container Tracking">
+                <field name="order_name"/>
+                <field name="serial_name"/>
+                <field name="tf_container_number"/>
+                <field name="tf_dispatch_progress"/>
+                <field name="tf_internal_status"/>
+                <field name="tf_port_to_destuff"/>
+                <field name="tf_container_status"/>
+                <field name="tf_container_location"/>
+                <field name="tf_eta"/>
+                <field name="tf_lfd"/>
+                <field name="tf_ssl"/>
+                <field name="tf_container_type"/>
+                <field name="tf_chassis_no"/>
+                <field name="tf_pubk_no"/>
+
+                <filter string="For Approval" name="internal_for_approval" domain="[('tf_internal_status', '=', 'for_approval')]"/>
+                <filter string="Tracking" name="internal_tracking" domain="[('tf_internal_status', '=', 'tracking')]"/>
+                <filter string="Planning" name="internal_planning" domain="[('tf_internal_status', '=', 'planning')]"/>
+                <filter string="Dispatch" name="internal_dispatch" domain="[('tf_internal_status', '=', 'dispatch')]"/>
+
+                <filter string="On the Water" name="container_on_water" domain="[('tf_container_status', '=', 'on_water')]"/>
+                <filter string="At Port" name="container_at_port" domain="[('tf_container_status', '=', 'at_port')]"/>
+                <filter string="Ready" name="container_ready" domain="[('tf_container_status', '=', 'ready')]"/>
+                <filter string="Ready for Return" name="container_ready_for_return" domain="[('tf_container_status', '=', 'ready_for_return')]"/>
+                <filter string="Picked Up" name="container_picked_up" domain="[('tf_container_status', '=', 'picked_up')]"/>
+                <filter string="De Stuffed" name="container_de_stuffed" domain="[('tf_container_status', '=', 'de_stuffed')]"/>
+                <filter string="Returned" name="container_returned" domain="[('tf_container_status', '=', 'returned')]"/>
+
+                <group>
+                    <filter string="SO" name="group_order" domain="[]" context="{'group_by': 'order_name'}"/>
+                    <filter string="Dispatch Progress" name="group_dispatch_progress" domain="[]" context="{'group_by': 'tf_dispatch_progress'}"/>
+                    <filter string="Internal Status" name="group_internal_status" domain="[]" context="{'group_by': 'tf_internal_status'}"/>
+                    <filter string="Container Status" name="group_container_status" domain="[]" context="{'group_by': 'tf_container_status'}"/>
+                    <filter string="SSL" name="group_ssl" domain="[]" context="{'group_by': 'tf_ssl'}"/>
+                    <filter string="Type" name="group_type" domain="[]" context="{'group_by': 'tf_container_type'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_tf_container_tracking_dashboard" model="ir.actions.act_window">
+        <field name="name">Container Tracking</field>
+        <field name="res_model">tf.sale.serial.plan</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_tf_container_dashboard_search"/>
+        <field name="domain">[('tf_is_container_product', '=', True), ('order_id.tf_flow_state', 'in', ['approved', 'completed'])]</field>
+        <field name="context">{}</field>
+    </record>
+
+    <record id="action_tf_container_wh_stock" model="ir.actions.act_window">
+        <field name="name">Inventory W/Stock</field>
+        <field name="res_model">stock.lot</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="stock.search_product_lot_filter"/>
+        <field name="domain">['|', ('location_id', '=', False), ('location_id.company_id', 'in', allowed_company_ids + [False])]</field>
+        <field name="context">{'display_complete': True, 'search_default_group_by_location': 1, 'search_default_on_hand': 1}</field>
+    </record>
+
+    <menuitem id="menu_tf_container_tracking_dashboard"
+              name="Container Tracking"
+              parent="stock.menu_stock_warehouse_mgmt"
+              action="action_tf_container_tracking_dashboard"
+              sequence="90"/>
+    <menuitem id="menu_tf_container_wh_stock"
+              name="Inventory W/Stock"
+              parent="stock.menu_stock_warehouse_mgmt"
+              action="action_tf_container_wh_stock"
+              sequence="91"/>
+</odoo>
