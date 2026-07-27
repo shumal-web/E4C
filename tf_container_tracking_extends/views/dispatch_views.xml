@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_tf_dispatch_ticket_form_extends" model="ir.ui.view">
+        <field name="name">tf.dispatch.ticket.form.extends</field>
+        <field name="model">tf.dispatch.ticket</field>
+        <field name="inherit_id" ref="tf_container_tracking.view_tf_dispatch_ticket_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='note']" position="before">
+                <field name="tf_special_instructions" widget="text" placeholder="Special instructions..."/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_tf_dispatch_ticket_list_extends" model="ir.ui.view">
+        <field name="name">tf.dispatch.ticket.list.extends</field>
+        <field name="model">tf.dispatch.ticket</field>
+        <field name="inherit_id" ref="tf_container_tracking.view_tf_dispatch_ticket_list"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='sale_order_id']" position="after">
+                <field name="tf_special_instructions" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_tf_dispatch_ticket_search_extends" model="ir.ui.view">
+        <field name="name">tf.dispatch.ticket.search.extends</field>
+        <field name="model">tf.dispatch.ticket</field>
+        <field name="inherit_id" ref="tf_container_tracking.view_tf_dispatch_ticket_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='sale_order_id']" position="after">
+                <field name="tf_special_instructions"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

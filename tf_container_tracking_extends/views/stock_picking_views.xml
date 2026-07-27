@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_picking_form_tf_special_instructions_extends" model="ir.ui.view">
+        <field name="name">stock.picking.form.tf.special.instructions.extends</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="tf_container_tracking.view_picking_form_tf_sale_order_link"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='tf_sale_order_id']" position="after">
+                <field name="tf_special_instructions" widget="text" placeholder="Special instructions..."/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_picking_list_tf_special_instructions_extends" model="ir.ui.view">
+        <field name="name">stock.picking.list.tf.special.instructions.extends</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="tf_container_tracking.view_picking_list_tf_sale_order_link"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='tf_sale_order_id']" position="after">
+                <field name="tf_special_instructions" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
