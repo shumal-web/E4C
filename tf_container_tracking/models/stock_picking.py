@@ -18,6 +18,11 @@ class StockPicking(models.Model):
         index=True,
         help="Optional sales order context used to filter serial numbers in detailed operations.",
     )
+    tf_customer_reference = fields.Char(
+        string="Customer Reference",
+        related="tf_sale_order_id.client_order_ref",
+        readonly=True,
+    )
     tf_container_number = fields.Char(
         related="tf_container_plan_id.tf_container_number",
         store=True,
@@ -35,6 +40,11 @@ class StockPicking(models.Model):
         string="Flow Kind",
         readonly=True,
         index=True,
+    )
+    tf_address_note = fields.Text(
+        string="SO Address",
+        related="tf_sale_order_id.tf_address_note",
+        readonly=True,
     )
 
     @api.onchange("tf_sale_order_id")

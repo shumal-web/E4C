@@ -22,7 +22,8 @@
                 <field name="dispatch_date"/>
                 <field name="dispatch_type"/>
                 <field name="sale_order_id"/>
-                <field name="container_plan_id"/>
+                <field name="customer_reference" optional="hide"/>
+                <field name="container_number"/>
                 <field name="location_partner_id"/>
                 <field name="truck_id"/>
                 <field name="driver_id"/>
@@ -80,7 +81,12 @@
                             <field name="name" readonly="1"/>
                             <field name="dispatch_type"/>
                             <field name="sale_order_id"/>
-                            <field name="container_plan_id" domain="[('order_id', '=', sale_order_id), ('tf_is_container_product', '=', True)]"/>
+                            <field name="customer_reference" readonly="1"/>
+                            <field name="container_plan_id"
+                                   string="Container Number"
+                                   context="{'tf_display_container_number': True}"
+                                   domain="[('order_id', '=', sale_order_id), ('tf_is_container_product', '=', True)]"/>
+                            <field name="container_number" invisible="1"/>
                             <field name="dispatch_date"/>
                         </group>
                         <group>
@@ -92,6 +98,9 @@
                             <field name="trailer_current_location"/>
                             <field name="trailer_destination_location"/>
                         </group>
+                    </group>
+                    <group string="Sales Order Details">
+                        <field name="tf_address_note" widget="text" readonly="1"/>
                     </group>
                     <group string="WhatsApp">
                         <field name="whatsapp_sent"/>
@@ -108,7 +117,7 @@
                         <field name="note"/>
                     </group>
                 </sheet>
-                <chatter/>
+                <chatter open_attachments="True"/>
             </form>
         </field>
     </record>
@@ -121,6 +130,7 @@
                 <field name="name"/>
                 <field name="sale_order_id"/>
                 <field name="container_plan_id"/>
+                <field name="container_number"/>
                 <field name="dispatch_type"/>
                 <field name="trailer_id"/>
                 <field name="driver_id"/>

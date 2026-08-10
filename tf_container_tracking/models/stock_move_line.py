@@ -4,6 +4,32 @@ from odoo import api, fields, models
 from .sale_serial_plan import INTERNAL_STATUS_SELECTION, CONTAINER_STATUS_SELECTION
 
 
+SERIAL_ATTRIBUTE_FIELDS = {
+    "tf_description",
+    "tf_length",
+    "tf_width",
+    "tf_height",
+    "tf_dimension_unit",
+    "tf_weight",
+    "tf_weight_unit",
+    "tf_storage_rate",
+    "tf_location_note",
+}
+
+CONTAINER_ATTRIBUTE_FIELDS = {
+    "tf_internal_status",
+    "tf_port_to_destuff",
+    "tf_container_status",
+    "tf_container_location",
+    "tf_eta",
+    "tf_lfd",
+    "tf_ssl",
+    "tf_container_type",
+    "tf_chassis_no",
+    "tf_pubk_no",
+}
+
+
 class StockMoveLine(models.Model):
     _inherit = "stock.move.line"
 
@@ -104,3 +130,52 @@ class StockMoveLine(models.Model):
                 and line.picking_id.picking_type_code == "incoming"
                 and not line.tf_is_container_product
             )
+
+    @api.depends("picking_id.picking_type_code", "picking_id.state")
+    def _compute_tf_allow_receipt_edit(self):
+        for line in self:
+            line.tf_allow_receipt_edit = bool(
+                line.picking_id
+                and line.picking_id.picking_type_code == "incoming"
+                and line.picking_id.state != "cancel"
+            )
+
+    def write(self, vals):
+        sync_fields = (SERIAL_ATTRIBUTE_FIELDS | CONTAINER_ATTRIBUTE_FIELDS | {"tf_container_plan_id"}).intersection(vals)
+        res = super().write(vals)
+        if sync_fields:
+            self._tf_sync_done_receipt_attribute_edits(sync_fields)
+        return res
+
+    def _tf_sync_done_receipt_attribute_edits(self, changed_fields):
+        done_receipt_lines = self.filtered(
+            lambda line: line.picking_id.picking_type_code == "incoming"
+            and line.picking_id.state == "done"
+            and line.product_id.tracking == "serial"
+        )
+        for line in done_receipt_lines:
+            lot = line.lot_id
+            serial_plan = line.tf_sale_serial_plan_id
+            if not serial_plan and lot:
+                serial_plan = self.env["tf.sale.serial.plan"].search([("lot_id", "=", lot.id)], limit=1)
+
+            lot_vals = {
+                field_name: getattr(line, field_name)
+                for field_name in changed_fields
+                if lot and field_name in lot._fields
+            }
+            if lot_vals:
+                lot.write(lot_vals)
+
+            plan_vals = {
+                field_name: getattr(line, field_name)
+                for field_name in changed_fields
+                if serial_plan and field_name in serial_plan._fields
+            }
+            if plan_vals:
+                serial_plan.write(plan_vals)
+
+            if "tf_container_plan_id" in changed_fields and serial_plan and not serial_plan.tf_is_container_product:
+                serial_plan.tf_container_plan_id = line.tf_container_plan_id.id or False
+                if lot and line.tf_container_plan_id and line.tf_container_plan_id.lot_id:
+                    lot.tf_container_lot_id = line.tf_container_plan_id.lot_id.id

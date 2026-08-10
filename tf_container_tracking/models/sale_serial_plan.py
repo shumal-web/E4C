@@ -147,6 +147,17 @@ class TfSaleSerialPlan(models.Model):
             result.append((record.id, label))
         return result
 
+    @api.depends_context("tf_display_container_number")
+    @api.depends("serial_name", "tf_container_number", "tf_is_container_product")
+    def _compute_display_name(self):
+        if not self.env.context.get("tf_display_container_number"):
+            return super()._compute_display_name()
+        for record in self:
+            if record.tf_is_container_product and record.tf_container_number:
+                record.display_name = record.tf_container_number
+            else:
+                record.display_name = record.serial_name or str(record.id)
+
     @api.model_create_multi
     def create(self, vals_list):
         if not self.env.su and not self.env.user.has_group("stock.group_stock_manager"):

@@ -57,9 +57,17 @@
                 <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color', 'no_create_edit': True}"/>
             </xpath>
 
+            <xpath expr="//group[@name='partner_details']/field[@name='partner_shipping_id']" position="after">
+                <field name="client_order_ref"/>
+            </xpath>
+
             <xpath expr="//group[@name='order_details']/field[@name='date_order'][last()]" position="after">
                 <field name="tf_address_note" widget="text" placeholder="Address details..."/>
                 <field name="tf_special_instructions" widget="text" placeholder="Special instructions..."/>
+            </xpath>
+
+            <xpath expr="//page[@name='other_information']//field[@name='client_order_ref']" position="attributes">
+                <attribute name="invisible">1</attribute>
             </xpath>
 
             <xpath expr="//group[@name='sales_person']/field[@name='tag_ids']" position="attributes">
@@ -74,6 +82,9 @@
             </xpath>
             <xpath expr="//field[@name='payment_term_id']" position="attributes">
                 <attribute name="invisible">1</attribute>
+            </xpath>
+            <xpath expr="//chatter" position="attributes">
+                <attribute name="open_attachments">True</attribute>
             </xpath>
         </field>
     </record>

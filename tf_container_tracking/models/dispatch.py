@@ -66,11 +66,22 @@ class TfDispatchTicket(models.Model):
         tracking=True,
     )
     sale_order_id = fields.Many2one("sale.order", required=True, index=True, tracking=True)
+    customer_reference = fields.Char(
+        string="Customer Reference",
+        related="sale_order_id.client_order_ref",
+        readonly=True,
+    )
     container_plan_id = fields.Many2one(
         "tf.sale.serial.plan",
-        string="Container Number",
+        string="Container",
         domain="[('order_id', '=', sale_order_id), ('tf_is_container_product', '=', True)]",
         tracking=True,
+    )
+    container_number = fields.Char(
+        string="Container Number",
+        compute="_compute_container_number",
+        store=True,
+        readonly=True,
     )
     location_partner_id = fields.Many2one("res.partner", string="Location", tracking=True)
     location_note = fields.Char(string="Location Note", tracking=True)
@@ -106,11 +117,25 @@ class TfDispatchTicket(models.Model):
     internal_transfer_id = fields.Many2one("stock.picking", string="Internal Transfer", readonly=True)
     delivery_order_id = fields.Many2one("stock.picking", string="Delivery Order", readonly=True)
     receiving_picking_id = fields.Many2one("stock.picking", string="Receiving Operation", readonly=True)
+    tf_address_note = fields.Text(
+        string="Address",
+        related="sale_order_id.tf_address_note",
+        readonly=True,
+    )
 
     whatsapp_message_preview = fields.Text(
         string="WhatsApp Message Preview",
         compute="_compute_whatsapp_message_preview",
     )
+
+    @api.depends("container_plan_id", "container_plan_id.tf_container_number", "container_plan_id.serial_name")
+    def _compute_container_number(self):
+        for rec in self:
+            rec.container_number = (
+                rec.container_plan_id.tf_container_number
+                or rec.container_plan_id.serial_name
+                or False
+            )
 
     @api.depends("state")
     def _compute_completed(self):
@@ -127,22 +152,28 @@ class TfDispatchTicket(models.Model):
         "trailer_id",
         "dispatch_date",
         "trailer_destination_location",
+        "customer_reference",
+        "tf_address_note",
     )
     def _compute_whatsapp_message_preview(self):
         for rec in self:
             so = rec.sale_order_id.name or "-"
-            container = rec.container_plan_id.tf_container_number or rec.container_plan_id.serial_name or "-"
+            customer_ref = rec.customer_reference or "-"
+            container = rec.container_number or "-"
             location = rec.location_partner_id.display_name or rec.location_note or "-"
             truck = rec.truck_id.name or "-"
             driver = rec.driver_id.name or "-"
             trailer = rec.trailer_id.name or "-"
             when = fields.Datetime.to_string(rec.dispatch_date) if rec.dispatch_date else "-"
             trailer_destination = rec.trailer_destination_location or location
+            address = rec.tf_address_note or "-"
             rec.whatsapp_message_preview = _(
                 "Dispatch Instruction\n"
                 "SO: %(so)s\n"
+                "Customer Reference: %(customer_ref)s\n"
                 "Container: %(container)s\n"
                 "Location: %(location)s\n"
+                "Address: %(address)s\n"
                 "Truck: %(truck)s\n"
                 "Driver: %(driver)s\n"
                 "Trailer: %(trailer)s\n"
@@ -150,8 +181,10 @@ class TfDispatchTicket(models.Model):
                 "Date: %(when)s"
             ) % {
                 "so": so,
+                "customer_ref": customer_ref,
                 "container": container,
                 "location": location,
+                "address": address,
                 "truck": truck,
                 "driver": driver,
                 "trailer": trailer,
@@ -472,6 +505,59 @@ class TfSaleSerialPlan(models.Model):
         ticket = self._ensure_dispatch_ticket("return_leg")
         super(TfSaleSerialPlan, self.sudo().with_context(mail_notrack=True)).write({"tf_dispatch_progress": "return"})
         return ticket
+
+    def action_undo_ready_dispatch_receiving(self):
+        if not self.env.user.has_group("stock.group_stock_manager"):
+            raise UserError(_("Only inventory managers can undo Ready dispatch/receiving."))
+        for plan in self:
+            if not plan.tf_is_container_product:
+                raise UserError(_("Undo Ready can only be used on container records."))
+            if plan.tf_container_status not in ("ready", "picked_up") and plan.tf_dispatch_progress != "delivery":
+                raise UserError(_("This container is not in a Ready delivery state."))
+
+            dispatch_tickets = self.env["tf.dispatch.ticket"].search(
+                [
+                    ("container_plan_id", "=", plan.id),
+                    ("dispatch_type", "in", ("delivery_leg_1", "delivery_leg_2")),
+                    ("state", "!=", "cancel"),
+                ]
+            )
+            if dispatch_tickets.filtered(lambda ticket: ticket.state == "completed"):
+                raise UserError(_("Ready cannot be undone because a linked dispatch ticket is already completed."))
+
+            linked_pickings = self.env["stock.picking"].search(
+                [
+                    ("tf_container_plan_id", "=", plan.id),
+                    ("picking_type_code", "in", ("incoming", "internal")),
+                    ("state", "!=", "cancel"),
+                ]
+            )
+            linked_pickings |= dispatch_tickets.mapped("receiving_picking_id")
+            linked_pickings |= dispatch_tickets.mapped("internal_transfer_id")
+            linked_pickings = linked_pickings.exists()
+            if linked_pickings.filtered(lambda picking: picking.state == "done"):
+                raise UserError(
+                    _("Ready cannot be undone because a linked receiving or transfer document is already done.")
+                )
+
+            draft_pickings = linked_pickings.filtered(lambda picking: picking.state == "draft")
+            active_pickings = linked_pickings - draft_pickings
+            if active_pickings:
+                active_pickings.action_cancel()
+            if draft_pickings:
+                draft_pickings.unlink()
+            if dispatch_tickets:
+                dispatch_tickets.action_cancel()
+
+            reset_values = {
+                "tf_container_status": "at_port" if plan.order_id.tf_shipment_type == "import" else "ready",
+                "tf_dispatch_progress": "not_dispatched",
+                "tf_ready_on": False,
+            }
+            if plan.order_id.tf_shipment_type == "import":
+                reset_values["tf_internal_status"] = "tracking"
+            super(TfSaleSerialPlan, plan.sudo().with_context(mail_notrack=True)).write(reset_values)
+        return True
 
     def _open_existing_dispatch_or_create(self, dispatch_type, title):
         self.ensure_one()

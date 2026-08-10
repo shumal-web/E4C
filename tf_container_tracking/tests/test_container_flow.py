@@ -101,6 +101,8 @@ class TestContainerFlow(TransactionCase):
         self.assertIn("tf_flow_state", form_view["arch"])
         self.assertIn("tf_address_note", form_view["arch"])
         self.assertIn("tf_special_instructions", form_view["arch"])
+        self.assertIn("client_order_ref", form_view["arch"])
+        self.assertIn('open_attachments="True"', form_view["arch"])
 
         sale_order_fields = form_view["models"]["sale.order"]
         self.assertIn("tf_container_tracking_count", sale_order_fields)
@@ -138,13 +140,104 @@ class TestContainerFlow(TransactionCase):
         self.assertFalse(form_arch.xpath("//button[@name='action_update_prices']"))
         payment_term_field = form_arch.xpath("//field[@name='payment_term_id']")[0]
         pricelist_field = form_arch.xpath("//field[@name='pricelist_id']")[0]
+        customer_ref_main = form_arch.xpath("//group[@name='partner_details']//field[@name='client_order_ref']")
+        customer_ref_other = form_arch.xpath("//page[@name='other_information']//field[@name='client_order_ref']")
         self.assertEqual(pricelist_field.get("invisible"), "1")
         self.assertEqual(payment_term_field.get("invisible"), "1")
+        self.assertTrue(customer_ref_main)
+        self.assertEqual(customer_ref_other[0].get("invisible"), "1")
         self.assertTrue(form_arch.xpath("//group[@name='partner_details']//field[@name='tag_ids']"))
+
+        picking_model = self.env["stock.picking"]
+        self.assertIn("tf_customer_reference", picking_model._fields)
+        self.assertIn("tf_address_note", picking_model._fields)
+        picking_view = picking_model.get_view(
+            view_id=self.env.ref("stock.view_picking_form").id,
+            view_type="form",
+        )
+        self.assertIn("tf_customer_reference", picking_view["arch"])
+        self.assertIn("tf_address_note", picking_view["arch"])
+        self.assertIn('open_attachments="True"', picking_view["arch"])
 
     def test_dispatch_container_field_uses_container_number_label(self):
         dispatch_model = self.env["tf.dispatch.ticket"]
-        self.assertEqual(dispatch_model._fields["container_plan_id"].string, "Container Number")
+        self.assertEqual(dispatch_model._fields["container_plan_id"].string, "Container")
+        self.assertEqual(dispatch_model._fields["container_number"].string, "Container Number")
+
+        partner = self._create_partner("Dispatch Container Number Partner")
+        container_product = self._create_product("Dispatch Container Number Product", is_container=True)
+        sale_order = self.env["sale.order"].create({
+            "partner_id": partner.id,
+            "client_order_ref": "CUST-REF-001",
+            "tf_address_note": "Dock door 4",
+            "tf_special_instructions": "Call before arrival",
+        })
+        container_line = self._create_so_line(sale_order, container_product, 1.0)
+
+        wizard = self._open_wizard(container_line)
+        wizard.action_apply()
+        container_plan = container_line.tf_serial_plan_ids[:1]
+        container_plan.tf_container_number = "REAL-CONT-001"
+
+        dispatch = self.env["tf.dispatch.ticket"].create({
+            "sale_order_id": sale_order.id,
+            "container_plan_id": container_plan.id,
+        })
+        self.assertEqual(dispatch.container_number, "REAL-CONT-001")
+        self.assertEqual(dispatch.customer_reference, "CUST-REF-001")
+        self.assertEqual(dispatch.tf_address_note, "Dock door 4")
+        self.assertIn("Container: REAL-CONT-001", dispatch.whatsapp_message_preview)
+        self.assertIn("Customer Reference: CUST-REF-001", dispatch.whatsapp_message_preview)
+        self.assertIn("Address: Dock door 4", dispatch.whatsapp_message_preview)
+        self.assertEqual(
+            container_plan.with_context(tf_display_container_number=True).display_name,
+            "REAL-CONT-001",
+        )
+
+        form_view = dispatch_model.get_view(
+            view_id=self.env.ref("tf_container_tracking.view_tf_dispatch_ticket_form").id,
+            view_type="form",
+        )
+        list_view = dispatch_model.get_view(
+            view_id=self.env.ref("tf_container_tracking.view_tf_dispatch_ticket_list").id,
+            view_type="list",
+        )
+        self.assertIn("container_number", form_view["arch"])
+        self.assertIn("customer_reference", form_view["arch"])
+        self.assertIn("tf_address_note", form_view["arch"])
+        self.assertIn('open_attachments="True"', form_view["arch"])
+        self.assertIn("container_number", list_view["arch"])
+        form_arch = etree.fromstring(form_view["arch"].encode())
+        container_field = form_arch.xpath("//field[@name='container_plan_id']")[0]
+        self.assertEqual(container_field.get("string"), "Container Number")
+        self.assertIn("tf_display_container_number", container_field.get("context"))
+
+    def test_sale_order_context_pushes_to_connected_inventory_docs(self):
+        partner = self._create_partner("Instruction Push Partner")
+        sale_order = self.env["sale.order"].create({
+            "partner_id": partner.id,
+            "client_order_ref": "REF-PUSH-001",
+            "tf_address_note": "Use north gate",
+            "tf_special_instructions": "Fragile freight",
+        })
+        incoming_type = self.env["stock.picking.type"].search([
+            ("code", "=", "incoming"),
+            ("warehouse_id", "!=", False),
+            ("company_id", "=", sale_order.company_id.id),
+        ], limit=1)
+        self.assertTrue(incoming_type)
+
+        picking = self.env["stock.picking"].create({
+            "picking_type_id": incoming_type.id,
+            "location_id": incoming_type.default_location_src_id.id,
+            "location_dest_id": incoming_type.default_location_dest_id.id,
+            "partner_id": partner.id,
+            "origin": sale_order.name,
+            "tf_sale_order_id": sale_order.id,
+        })
+
+        self.assertEqual(picking.tf_customer_reference, "REF-PUSH-001")
+        self.assertEqual(picking.tf_address_note, "Use north gate")
 
     def test_assignment_wizard_quantity_is_editable(self):
         wizard_model = self.env["tf.sale.serial.wizard"]
@@ -242,6 +335,14 @@ class TestContainerFlow(TransactionCase):
 
         dashboard_action = self.env.ref("tf_container_tracking.action_tf_container_tracking_dashboard")
         self.assertIn("order_id.tf_flow_state", dashboard_action.domain)
+        dashboard_view = self.env["tf.sale.serial.plan"].get_view(
+            view_id=self.env.ref("tf_container_tracking.view_tf_container_dashboard_form").id,
+            view_type="form",
+        )
+        self.assertIn("action_undo_ready_dispatch_receiving", dashboard_view["arch"])
+        self.assertIn('open_attachments="True"', dashboard_view["arch"])
+        undo_action = self.env.ref("tf_container_tracking.action_tf_container_undo_ready")
+        self.assertEqual(undo_action.binding_view_types, "form,list")
 
     def test_container_assignment_flow(self):
         with self.assertRaises(ValidationError):
@@ -623,6 +724,51 @@ class TestContainerFlow(TransactionCase):
         self.assertEqual(plans.mapped("tf_description"), ["Desc-1", "Desc-2"])
         self.assertEqual(plans.mapped("lot_id.tf_description"), ["Desc-1", "Desc-2"])
 
+        done_line = picking.move_line_ids.sorted(lambda ml: ml.id)[0]
+        self.assertTrue(done_line.tf_allow_receipt_edit)
+        done_line.write({
+            "tf_description": "Edited after receipt",
+            "tf_length": 12.0,
+            "tf_width": 13.0,
+            "tf_height": 14.0,
+            "tf_dimension_unit": "cm",
+            "tf_weight": 15.0,
+            "tf_weight_unit": "kg",
+            "tf_storage_rate": "weekly",
+            "tf_location_note": "Rack A1",
+        })
+
+        edited_plan = done_line.tf_sale_serial_plan_id
+        edited_lot = done_line.lot_id
+        edited_plan.invalidate_recordset([
+            "tf_description",
+            "tf_length",
+            "tf_width",
+            "tf_height",
+            "tf_dimension_unit",
+            "tf_weight",
+            "tf_weight_unit",
+            "tf_storage_rate",
+            "tf_location_note",
+        ])
+        edited_lot.invalidate_recordset([
+            "tf_description",
+            "tf_length",
+            "tf_width",
+            "tf_height",
+            "tf_dimension_unit",
+            "tf_weight",
+            "tf_weight_unit",
+            "tf_storage_rate",
+            "tf_location_note",
+        ])
+        self.assertEqual(edited_plan.tf_description, "Edited after receipt")
+        self.assertEqual(edited_lot.tf_description, "Edited after receipt")
+        self.assertEqual(edited_plan.tf_length, 12.0)
+        self.assertEqual(edited_lot.tf_length, 12.0)
+        self.assertEqual(edited_plan.tf_location_note, "Rack A1")
+        self.assertEqual(edited_lot.tf_location_note, "Rack A1")
+
     def test_internal_status_permissions_workflow_and_history(self):
         partner = self._create_partner("Status Workflow Partner")
         container_product = self._create_product("Status Container Product", is_container=True)
@@ -904,6 +1050,79 @@ class TestContainerFlow(TransactionCase):
         action_second_delivery = plan.action_create_delivery_order()
         self.assertEqual(action_first_delivery.get("res_model"), "stock.picking")
         self.assertEqual(action_first_delivery.get("res_id"), action_second_delivery.get("res_id"))
+
+    def test_undo_ready_cancels_unfinished_dispatch_and_receiving(self):
+        partner = self._create_partner("Undo Ready Partner")
+        container_product = self._create_product("Undo Ready Container", is_container=True)
+        piece_product = self._create_product("Undo Ready Piece", requires_container=True)
+        sale_order = self.env["sale.order"].create({"partner_id": partner.id})
+        container_line = self._create_so_line(sale_order, container_product, 1.0)
+        piece_line = self._create_so_line(sale_order, piece_product, 2.0)
+
+        self._open_wizard(container_line).action_apply()
+        piece_wizard = self._open_wizard(piece_line)
+        piece_wizard.action_auto_assign_containers()
+        piece_wizard.action_apply()
+
+        sale_order.action_confirm()
+        sale_order.action_tf_approve()
+        plan = container_line.tf_serial_plan_ids[:1]
+        plan.write({
+            "tf_port_to_destuff": "Undo Port",
+            "tf_container_location": "Undo Yard",
+        })
+
+        plan.action_deliver_to_client()
+        linked_pickings = self.env["stock.picking"].search([
+            ("tf_container_plan_id", "=", plan.id),
+            ("state", "!=", "cancel"),
+        ])
+        dispatch_tickets = self.env["tf.dispatch.ticket"].search([
+            ("container_plan_id", "=", plan.id),
+            ("dispatch_type", "in", ("delivery_leg_1", "delivery_leg_2")),
+            ("state", "!=", "cancel"),
+        ])
+        self.assertTrue(linked_pickings)
+        self.assertTrue(dispatch_tickets)
+
+        plan.action_undo_ready_dispatch_receiving()
+        plan.invalidate_recordset(["tf_container_status", "tf_internal_status", "tf_dispatch_progress", "tf_ready_on"])
+        linked_pickings.invalidate_recordset(["state"])
+        dispatch_tickets.invalidate_recordset(["state"])
+
+        self.assertEqual(plan.tf_container_status, "at_port")
+        self.assertEqual(plan.tf_internal_status, "tracking")
+        self.assertEqual(plan.tf_dispatch_progress, "not_dispatched")
+        self.assertFalse(plan.tf_ready_on)
+        self.assertFalse(linked_pickings.filtered(lambda picking: picking.exists() and picking.state != "cancel"))
+        self.assertTrue(dispatch_tickets)
+        self.assertTrue(all(state == "cancel" for state in dispatch_tickets.mapped("state")))
+
+    def test_undo_ready_blocks_completed_receiving(self):
+        partner = self._create_partner("Undo Ready Done Partner")
+        container_product = self._create_product("Undo Ready Done Container", is_container=True)
+        piece_product = self._create_product("Undo Ready Done Piece", requires_container=True)
+        sale_order = self.env["sale.order"].create({"partner_id": partner.id})
+        container_line = self._create_so_line(sale_order, container_product, 1.0)
+        piece_line = self._create_so_line(sale_order, piece_product, 1.0)
+
+        self._open_wizard(container_line).action_apply()
+        piece_wizard = self._open_wizard(piece_line)
+        piece_wizard.action_auto_assign_containers()
+        piece_wizard.action_apply()
+
+        sale_order.action_confirm()
+        sale_order.action_tf_approve()
+        plan = container_line.tf_serial_plan_ids[:1]
+        receive_action = plan.action_receive_container()
+        receiving = self.env["stock.picking"].browse(receive_action["res_id"])
+        for move_line in receiving.move_line_ids:
+            move_line.lot_name = f"UNDO-DONE-{move_line.id}"
+            move_line.quantity = 1.0
+        self._validate_picking(receiving)
+
+        with self.assertRaises(UserError):
+            plan.action_undo_ready_dispatch_receiving()
 
     def test_container_deliver_and_receive_leg_flow(self):
         partner = self._create_partner("Leg Flow Partner")

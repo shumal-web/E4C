@@ -16,8 +16,13 @@
                 <field name="tf_sale_order_id"
                        options="{'no_create': True}"
                        readonly="state in ['cancel', 'done']"/>
+                <field name="tf_customer_reference" readonly="1"/>
                 <field name="tf_container_number" readonly="1"/>
                 <field name="tf_flow_kind" readonly="1"/>
+                <field name="tf_address_note" widget="text" readonly="1"/>
+            </xpath>
+            <xpath expr="//chatter" position="attributes">
+                <attribute name="open_attachments">True</attribute>
             </xpath>
         </field>
     </record>
@@ -29,6 +34,7 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='origin']" position="after">
                 <field name="tf_sale_order_id" optional="show"/>
+                <field name="tf_customer_reference" optional="hide"/>
                 <field name="tf_container_number" optional="show"/>
                 <field name="tf_flow_kind" optional="show"/>
             </xpath>

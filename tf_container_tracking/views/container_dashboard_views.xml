@@ -76,6 +76,12 @@
                             class="btn-primary"
                             groups="stock.group_stock_manager"
                             invisible="tf_internal_status != 'for_approval'"/>
+                    <button name="action_undo_ready_dispatch_receiving"
+                            type="object"
+                            string="Undo Ready"
+                            class="btn-secondary"
+                            groups="stock.group_stock_manager"
+                            invisible="not tf_is_container_product or (tf_container_status not in ['ready', 'picked_up'] and tf_dispatch_progress != 'delivery')"/>
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
@@ -135,7 +141,7 @@
                         </group>
                     </group>
                 </sheet>
-                <chatter/>
+                <chatter open_attachments="True"/>
             </form>
         </field>
     </record>
@@ -201,6 +207,15 @@
         <field name="search_view_id" ref="stock.search_product_lot_filter"/>
         <field name="domain">['|', ('location_id', '=', False), ('location_id.company_id', 'in', allowed_company_ids + [False])]</field>
         <field name="context">{'display_complete': True, 'search_default_group_by_location': 1, 'search_default_on_hand': 1}</field>
+    </record>
+
+    <record id="action_tf_container_undo_ready" model="ir.actions.server">
+        <field name="name">Undo Ready Dispatch/Receiving</field>
+        <field name="model_id" ref="tf_serial_quote_attributes.model_tf_sale_serial_plan"/>
+        <field name="binding_model_id" ref="tf_serial_quote_attributes.model_tf_sale_serial_plan"/>
+        <field name="binding_view_types">form,list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_undo_ready_dispatch_receiving()</field>
     </record>
 
     <menuitem id="menu_tf_container_tracking_dashboard"
