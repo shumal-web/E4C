@@ -111,6 +111,47 @@ class SaleOrder(models.Model):
         self.filtered(lambda order: order.tf_flow_state == "draft").write({"tf_flow_state": "to_approve"})
         return res
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            template_id = vals.get("sale_order_template_id")
+            if template_id and "tf_shipment_type" not in vals:
+                template = self.env["sale.order.template"].browse(template_id)
+                if template.exists() and template.tf_shipment_type:
+                    vals["tf_shipment_type"] = template.tf_shipment_type
+        orders = super().create(vals_list)
+        for order, vals in zip(orders, vals_list):
+            template = order.sale_order_template_id
+            if (
+                template
+                and "tf_shipment_type" not in vals
+                and template.tf_shipment_type
+                and order.tf_shipment_type != template.tf_shipment_type
+            ):
+                order.tf_shipment_type = template.tf_shipment_type
+        return orders
+
+    def write(self, vals):
+        if vals.get("sale_order_template_id") and "tf_shipment_type" not in vals:
+            template = self.env["sale.order.template"].browse(vals["sale_order_template_id"])
+            if template.exists() and template.tf_shipment_type:
+                vals = dict(vals, tf_shipment_type=template.tf_shipment_type)
+        return super().write(vals)
+
+    @api.onchange("sale_order_template_id")
+    def _onchange_sale_order_template_id(self):
+        res = super()._onchange_sale_order_template_id()
+        for order in self:
+            if order.sale_order_template_id and order.sale_order_template_id.tf_shipment_type:
+                order.tf_shipment_type = order.sale_order_template_id.tf_shipment_type
+        return res
+
+    def _tf_has_direct_container_to_client_flow(self):
+        for order in self:
+            if any(order.order_line.mapped("product_id.product_tmpl_id.tf_direct_container_to_client")):
+                return True
+        return False
+
     def _tf_container_seed(self, index):
         self.ensure_one()
         order_name = (self.name or "SO").replace("/", "-").replace(" ", "")
@@ -122,7 +163,10 @@ class SaleOrder(models.Model):
 
     def _tf_get_case_lines(self):
         self.ensure_one()
-        return self.order_line.filtered(lambda l: not l.product_id.product_tmpl_id.tf_is_container)
+        return self.order_line.filtered(
+            lambda l: not l.product_id.product_tmpl_id.tf_is_container
+            and not l.product_id.product_tmpl_id.tf_direct_container_to_client
+        )
 
     def _tf_ensure_container_plans_from_order(self, internal_status):
         plan_model = self.env["tf.sale.serial.plan"]

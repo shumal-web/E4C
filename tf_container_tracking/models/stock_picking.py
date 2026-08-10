@@ -36,6 +36,7 @@ class StockPicking(models.Model):
             ("case_export_leg_1", "Case Export Leg 1"),
             ("case_export_leg_2", "Case Export Leg 2"),
             ("container_export_leg_3", "Container Export Leg 3"),
+            ("direct_container_client", "Direct Container to Client"),
         ],
         string="Flow Kind",
         readonly=True,
@@ -137,7 +138,7 @@ class StockPicking(models.Model):
         return vals
 
     @api.model
-    def _tf_create_piece_plan_picking(self, plan, picking_type):
+    def _tf_create_piece_plan_picking(self, plan, picking_type, flow_kind=False):
         piece_plans = self._tf_get_container_piece_plans(plan)
         picking = self.create(
             {
@@ -148,6 +149,7 @@ class StockPicking(models.Model):
                 "origin": plan.order_id.name,
                 "tf_container_plan_id": plan.id,
                 "tf_sale_order_id": plan.order_id.id,
+                "tf_flow_kind": flow_kind or False,
             }
         )
         grouped_plans = {}
@@ -310,6 +312,79 @@ class StockPicking(models.Model):
         if not picking_type:
             raise UserError("No delivery picking type found for this company.")
         return self._tf_create_piece_plan_picking(plan, picking_type)
+
+    @api.model
+    def _tf_create_direct_delivery_from_container_plan(self, plan):
+        picking_type = self._tf_get_picking_type("outgoing", plan.company_id)
+        if not picking_type:
+            raise UserError(_("No delivery picking type found for this company."))
+
+        piece_plans = plan.tf_piece_plan_ids.filtered(lambda p: not p.tf_is_container_product)
+        if piece_plans:
+            return self._tf_create_piece_plan_picking(plan, picking_type, flow_kind="direct_container_client")
+
+        lot = self._tf_get_or_create_container_lot(plan)
+        picking = self.create(
+            {
+                "picking_type_id": picking_type.id,
+                "location_id": picking_type.default_location_src_id.id,
+                "location_dest_id": picking_type.default_location_dest_id.id,
+                "partner_id": plan.order_id.partner_shipping_id.id or plan.order_id.partner_id.id,
+                "origin": plan.order_id.name,
+                "tf_container_plan_id": plan.id,
+                "tf_sale_order_id": plan.order_id.id,
+                "tf_flow_kind": "direct_container_client",
+            }
+        )
+        move = self.env["stock.move"].create(
+            {
+                "description_picking": plan.product_id.display_name,
+                "picking_id": picking.id,
+                "product_id": plan.product_id.id,
+                "product_uom": plan.product_id.uom_id.id,
+                "product_uom_qty": 1.0,
+                "location_id": picking.location_id.id,
+                "location_dest_id": picking.location_dest_id.id,
+                "sale_line_id": plan.order_line_id.id,
+            }
+        )
+        picking.action_confirm()
+        self._tf_cleanup_placeholder_move_lines(picking)
+        self.env["stock.move.line"].create(
+            {
+                "move_id": move.id,
+                "picking_id": picking.id,
+                "company_id": picking.company_id.id,
+                "product_id": move.product_id.id,
+                "product_uom_id": move.product_uom.id,
+                "location_id": move.location_id.id,
+                "location_dest_id": move.location_dest_id.id,
+                "quantity": 1.0,
+                "lot_id": lot.id,
+                "tf_sale_serial_plan_id": plan.id,
+                "tf_container_plan_id": plan.id,
+                "tf_description": lot.tf_description or plan.tf_description,
+                "tf_length": lot.tf_length or plan.tf_length,
+                "tf_width": lot.tf_width or plan.tf_width,
+                "tf_height": lot.tf_height or plan.tf_height,
+                "tf_dimension_unit": lot.tf_dimension_unit or plan.tf_dimension_unit,
+                "tf_weight": lot.tf_weight or plan.tf_weight,
+                "tf_weight_unit": lot.tf_weight_unit or plan.tf_weight_unit,
+                "tf_storage_rate": lot.tf_storage_rate or plan.tf_storage_rate,
+                "tf_location_note": lot.tf_location_note or plan.tf_location_note,
+                "tf_internal_status": plan.tf_internal_status,
+                "tf_port_to_destuff": plan.tf_port_to_destuff,
+                "tf_container_status": plan.tf_container_status,
+                "tf_container_location": plan.tf_container_location,
+                "tf_eta": plan.tf_eta,
+                "tf_lfd": plan.tf_lfd,
+                "tf_ssl": plan.tf_ssl,
+                "tf_container_type": plan.tf_container_type,
+                "tf_chassis_no": plan.tf_chassis_no,
+                "tf_pubk_no": plan.tf_pubk_no,
+            }
+        )
+        return picking
 
     @api.model
     def _tf_create_sale_order_lines_picking(self, sale_order, order_lines, operation_code, partner=False, flow_kind=False):
@@ -511,4 +586,17 @@ class StockPicking(models.Model):
                 ticket.internal_transfer_id = picking.id
             if picking.tf_sale_order_id and picking.tf_sale_order_id.tf_flow_state != "completed":
                 picking.tf_sale_order_id.tf_flow_state = "completed"
+        for picking in self.filtered(
+            lambda p: p.picking_type_code == "outgoing" and p.tf_flow_kind == "direct_container_client" and p.tf_container_plan_id
+        ):
+            plan = picking.tf_container_plan_id.sudo()
+            ticket = plan._ensure_dispatch_ticket("direct_container_client")
+            if not ticket.delivery_order_id:
+                ticket.delivery_order_id = picking.id
+            plan.with_context(mail_notrack=True).write(
+                {
+                    "tf_container_status": "picked_up",
+                    "tf_dispatch_progress": "completed",
+                }
+            )
         return res

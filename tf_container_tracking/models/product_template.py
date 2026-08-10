@@ -14,6 +14,10 @@ class ProductTemplate(models.Model):
         string="Requires Container Assignment",
         help="For serial-tracked piece products that must be linked to a container serial.",
     )
+    tf_direct_container_to_client = fields.Boolean(
+        string="Direct Container to Client",
+        help="Use this on service/flow products that should move the container directly to the client without a warehouse stop.",
+    )
 
     @api.model
     def default_get(self, fields_list):

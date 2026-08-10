@@ -59,6 +59,7 @@ class TfDispatchTicket(models.Model):
             ("export_container_leg_1", "Container Export Leg 1"),
             ("export_container_leg_2", "Container Export Leg 2"),
             ("export_container_leg_3", "Container Export Leg 3"),
+            ("direct_container_client", "Direct Container to Client"),
             ("standalone", "Standalone"),
         ],
         default="pickup_parts",
@@ -296,6 +297,14 @@ class TfDispatchTicket(models.Model):
             )
         elif self.dispatch_type == "export_container_leg_3" and self.sale_order_id:
             self.sale_order_id.sudo().write({"tf_flow_state": "completed"})
+        elif self.dispatch_type == "direct_container_client" and self.container_plan_id:
+            plan = self.container_plan_id
+            super(TfSaleSerialPlan, plan.sudo().with_context(mail_notrack=True)).write(
+                {
+                    "tf_container_status": "picked_up",
+                    "tf_dispatch_progress": "completed",
+                }
+            )
 
     def action_cancel(self):
         self.write({"state": "cancel"})
@@ -431,6 +440,12 @@ class TfSaleSerialPlan(models.Model):
         dispatch_date = self.tf_ready_on or fields.Datetime.now()
         if dispatch_type in ("delivery_leg_2", "export_container_leg_2"):
             location_note = self.tf_container_location or self.tf_container_number or location_note
+        if dispatch_type == "direct_container_client":
+            location_note = (
+                self.order_id.partner_shipping_id.display_name
+                or self.order_id.partner_id.display_name
+                or location_note
+            )
         return {
             "default_dispatch_type": dispatch_type,
             "default_sale_order_id": self.order_id.id,
@@ -506,6 +521,21 @@ class TfSaleSerialPlan(models.Model):
         super(TfSaleSerialPlan, self.sudo().with_context(mail_notrack=True)).write({"tf_dispatch_progress": "return"})
         return ticket
 
+    def _tf_ensure_direct_container_client_flow(self):
+        self.ensure_one()
+        ticket = self._ensure_dispatch_ticket("direct_container_client")
+        delivery_action = self._open_existing_picking_or_create(
+            "outgoing",
+            _("Direct Delivery Order"),
+            "_tf_create_direct_delivery_from_container_plan",
+        )
+        delivery = self.env["stock.picking"].browse(delivery_action.get("res_id"))
+        if delivery and not ticket.delivery_order_id:
+            ticket.delivery_order_id = delivery.id
+        if self.tf_dispatch_progress == "not_dispatched":
+            super(TfSaleSerialPlan, self.sudo().with_context(mail_notrack=True)).write({"tf_dispatch_progress": "delivery"})
+        return delivery_action
+
     def action_undo_ready_dispatch_receiving(self):
         if not self.env.user.has_group("stock.group_stock_manager"):
             raise UserError(_("Only inventory managers can undo Ready dispatch/receiving."))
@@ -518,7 +548,7 @@ class TfSaleSerialPlan(models.Model):
             dispatch_tickets = self.env["tf.dispatch.ticket"].search(
                 [
                     ("container_plan_id", "=", plan.id),
-                    ("dispatch_type", "in", ("delivery_leg_1", "delivery_leg_2")),
+                    ("dispatch_type", "in", ("delivery_leg_1", "delivery_leg_2", "direct_container_client")),
                     ("state", "!=", "cancel"),
                 ]
             )
@@ -528,12 +558,13 @@ class TfSaleSerialPlan(models.Model):
             linked_pickings = self.env["stock.picking"].search(
                 [
                     ("tf_container_plan_id", "=", plan.id),
-                    ("picking_type_code", "in", ("incoming", "internal")),
+                    ("picking_type_code", "in", ("incoming", "internal", "outgoing")),
                     ("state", "!=", "cancel"),
                 ]
             )
             linked_pickings |= dispatch_tickets.mapped("receiving_picking_id")
             linked_pickings |= dispatch_tickets.mapped("internal_transfer_id")
+            linked_pickings |= dispatch_tickets.mapped("delivery_order_id")
             linked_pickings = linked_pickings.exists()
             if linked_pickings.filtered(lambda picking: picking.state == "done"):
                 raise UserError(
@@ -607,6 +638,12 @@ class TfSaleSerialPlan(models.Model):
     def action_receive_container(self):
         self.ensure_one()
         self._tf_check_order_approved_for_operations()
+        if self.order_id._tf_has_direct_container_to_client_flow():
+            if self.tf_container_status != "ready":
+                self.write({"tf_container_status": "ready"})
+                self.invalidate_recordset(["tf_internal_status", "tf_dispatch_progress", "tf_ready_on"])
+            return self._tf_ensure_direct_container_client_flow()
+
         if self.tf_container_status != "ready":
             self.write({"tf_container_status": "ready"})
             self.invalidate_recordset(["tf_internal_status", "tf_dispatch_progress", "tf_ready_on"])
@@ -624,6 +661,12 @@ class TfSaleSerialPlan(models.Model):
     def action_truck_out_from_inventory(self):
         self.ensure_one()
         self._tf_check_order_approved_for_operations()
+        if self.order_id._tf_has_direct_container_to_client_flow():
+            if self.tf_container_status != "ready":
+                self.write({"tf_container_status": "ready"})
+                self.invalidate_recordset(["tf_internal_status", "tf_dispatch_progress", "tf_ready_on"])
+            return self._tf_ensure_direct_container_client_flow()
+
         if self.order_id.tf_shipment_type == "export":
             internal_action = self._open_existing_picking_or_create(
                 "internal",
@@ -728,6 +771,8 @@ class TfSaleSerialPlan(models.Model):
     def action_create_delivery_order(self):
         self.ensure_one()
         self._tf_check_order_approved_for_operations()
+        if self.order_id._tf_has_direct_container_to_client_flow():
+            return self._tf_ensure_direct_container_client_flow()
         return self._open_existing_picking_or_create(
             "outgoing",
             _("Delivery Order"),

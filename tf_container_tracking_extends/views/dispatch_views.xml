@@ -7,6 +7,7 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='note']" position="before">
                 <field name="tf_special_instructions" widget="text" placeholder="Special instructions..."/>
+                <field name="tf_sale_tag_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
             </xpath>
         </field>
     </record>
@@ -17,6 +18,7 @@
         <field name="inherit_id" ref="tf_container_tracking.view_tf_dispatch_ticket_list"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='sale_order_id']" position="after">
+                <field name="tf_sale_tag_ids" widget="many2many_tags" optional="show"/>
                 <field name="tf_special_instructions" optional="show"/>
             </xpath>
         </field>
@@ -28,6 +30,7 @@
         <field name="inherit_id" ref="tf_container_tracking.view_tf_dispatch_ticket_search"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='sale_order_id']" position="after">
+                <field name="tf_sale_tag_ids"/>
                 <field name="tf_special_instructions"/>
             </xpath>
         </field>

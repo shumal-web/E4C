@@ -11,6 +11,11 @@ class TfDispatchTicket(models.Model):
         readonly=False,
         store=True,
     )
+    tf_sale_tag_ids = fields.Many2many(
+        string="Tags",
+        related="sale_order_id.tag_ids",
+        readonly=True,
+    )
 
     @api.depends(
         "sale_order_id",
@@ -23,6 +28,7 @@ class TfDispatchTicket(models.Model):
         "dispatch_date",
         "trailer_destination_location",
         "tf_special_instructions",
+        "tf_sale_tag_ids",
     )
     def _compute_whatsapp_message_preview(self):
         super()._compute_whatsapp_message_preview()
@@ -32,3 +38,6 @@ class TfDispatchTicket(models.Model):
                     f"{rec.whatsapp_message_preview}\n"
                     f"Special Instructions: {rec.tf_special_instructions}"
                 )
+            if rec.tf_sale_tag_ids and rec.whatsapp_message_preview:
+                tag_names = ", ".join(rec.tf_sale_tag_ids.mapped("name"))
+                rec.whatsapp_message_preview = f"{rec.whatsapp_message_preview}\nTags: {tag_names}"

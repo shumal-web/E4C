@@ -224,6 +224,9 @@ class TfSaleSerialPlan(models.Model):
                     {"tf_internal_status": "planning"}
                 )
                 record.invalidate_recordset(["tf_internal_status"])
+            if record.order_id._tf_has_direct_container_to_client_flow():
+                record._tf_ensure_direct_container_client_flow()
+                continue
             receive_action = record._tf_ensure_receiving_operation()
             if not receive_action:
                 record._tf_ensure_delivery_leg_1()

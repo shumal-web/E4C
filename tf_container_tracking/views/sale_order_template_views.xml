@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="sale_order_template_view_form_tf_container_tracking" model="ir.ui.view">
+        <field name="name">sale.order.template.form.tf.container.tracking</field>
+        <field name="model">sale.order.template</field>
+        <field name="inherit_id" ref="sale_management.sale_order_template_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='sale_info']/field[@name='mail_template_id']" position="after">
+                <field name="tf_shipment_type"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="sale_order_template_view_tree_tf_container_tracking" model="ir.ui.view">
+        <field name="name">sale.order.template.list.tf.container.tracking</field>
+        <field name="model">sale.order.template</field>
+        <field name="inherit_id" ref="sale_management.sale_order_template_view_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="tf_shipment_type" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

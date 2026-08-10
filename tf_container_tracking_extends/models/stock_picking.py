@@ -11,6 +11,11 @@ class StockPicking(models.Model):
         readonly=False,
         store=True,
     )
+    tf_sale_tag_ids = fields.Many2many(
+        string="Tags",
+        related="tf_sale_order_id.tag_ids",
+        readonly=True,
+    )
 
     @api.model_create_multi
     def create(self, vals_list):

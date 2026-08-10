@@ -90,6 +90,8 @@ class TestContainerFlow(TransactionCase):
         self.assertIn("tf_flow_state", sale_model._fields)
         self.assertIn("tf_address_note", sale_model._fields)
         self.assertIn("tf_special_instructions", sale_model._fields)
+        self.assertIn("tf_shipment_type", self.env["sale.order.template"]._fields)
+        self.assertIn("tf_direct_container_to_client", self.env["product.template"]._fields)
 
         form_view = sale_model.get_view(
             view_id=self.env.ref("sale.view_order_form").id,
@@ -147,6 +149,12 @@ class TestContainerFlow(TransactionCase):
         self.assertTrue(customer_ref_main)
         self.assertEqual(customer_ref_other[0].get("invisible"), "1")
         self.assertTrue(form_arch.xpath("//group[@name='partner_details']//field[@name='tag_ids']"))
+
+        template_view = self.env["sale.order.template"].get_view(
+            view_id=self.env.ref("sale_management.sale_order_template_view_form").id,
+            view_type="form",
+        )
+        self.assertIn("tf_shipment_type", template_view["arch"])
 
         picking_model = self.env["stock.picking"]
         self.assertIn("tf_customer_reference", picking_model._fields)
@@ -273,6 +281,34 @@ class TestContainerFlow(TransactionCase):
         self.assertEqual(container_product.type, "consu")
         self.assertEqual(container_product.tracking, "serial")
         self.assertTrue(container_product.is_storable)
+
+        direct_flow_product = self.env["product.template"].create({
+            "name": "Intact Delivery Flow Product",
+            "tf_direct_container_to_client": True,
+        })
+        self.assertEqual(direct_flow_product.type, "service")
+        self.assertFalse(direct_flow_product.tf_is_container)
+        self.assertFalse(direct_flow_product.tf_requires_container)
+
+    def test_quotation_template_sets_sales_order_flow_type(self):
+        partner = self._create_partner("Template Flow Partner")
+        template = self.env["sale.order.template"].create({
+            "name": "Export Template",
+            "tf_shipment_type": "export",
+        })
+
+        sale_order = self.env["sale.order"].create({
+            "partner_id": partner.id,
+            "sale_order_template_id": template.id,
+        })
+        self.assertEqual(sale_order.tf_shipment_type, "export")
+
+        onchange_order = self.env["sale.order"].new({
+            "partner_id": partner.id,
+            "sale_order_template_id": template.id,
+        })
+        onchange_order._onchange_sale_order_template_id()
+        self.assertEqual(onchange_order.tf_shipment_type, "export")
 
     def test_sales_order_confirm_moves_flow_to_for_approval(self):
         partner = self._create_partner("Confirm Flow Partner")
@@ -1229,6 +1265,68 @@ class TestContainerFlow(TransactionCase):
 
         plan.invalidate_recordset(["tf_container_status", "tf_dispatch_progress"])
         self.assertEqual(plan.tf_container_status, "returned")
+        self.assertEqual(plan.tf_dispatch_progress, "completed")
+
+    def test_direct_container_to_client_product_creates_direct_dispatch_and_delivery(self):
+        partner = self._create_partner("Direct Client Partner")
+        container_product = self._create_product("Direct Flow Container", is_container=True)
+        direct_flow_product = self.env["product.template"].create({
+            "name": "Intact Delivery",
+            "tf_direct_container_to_client": True,
+            "sale_ok": True,
+            "list_price": 1.0,
+        }).product_variant_id
+
+        sale_order = self.env["sale.order"].create({
+            "partner_id": partner.id,
+            "tf_shipment_type": "import",
+        })
+        container_line = self._create_so_line(sale_order, container_product, 1.0)
+        self._create_so_line(sale_order, direct_flow_product, 1.0)
+
+        wizard = self._open_wizard(container_line)
+        wizard.action_apply()
+        sale_order.action_confirm()
+        sale_order.action_tf_approve()
+
+        plan = container_line.tf_serial_plan_ids[:1]
+        self.assertTrue(plan)
+
+        direct_action = plan.action_truck_out_from_inventory()
+        direct_delivery = self.env["stock.picking"].browse(direct_action["res_id"])
+        self.assertEqual(direct_action["res_model"], "stock.picking")
+        self.assertEqual(direct_delivery.picking_type_code, "outgoing")
+        self.assertEqual(direct_delivery.tf_flow_kind, "direct_container_client")
+        self.assertEqual(direct_delivery.tf_container_plan_id, plan)
+        self.assertEqual(direct_delivery.tf_sale_order_id, sale_order)
+
+        direct_ticket = self.env["tf.dispatch.ticket"].search([
+            ("container_plan_id", "=", plan.id),
+            ("dispatch_type", "=", "direct_container_client"),
+            ("state", "!=", "cancel"),
+        ])
+        self.assertEqual(len(direct_ticket), 1)
+        self.assertEqual(direct_ticket.delivery_order_id, direct_delivery)
+        self.assertFalse(self.env["stock.picking"].search([
+            ("tf_container_plan_id", "=", plan.id),
+            ("picking_type_code", "in", ("incoming", "internal")),
+            ("state", "!=", "cancel"),
+        ]))
+
+        second_action = plan.action_truck_out_from_inventory()
+        self.assertEqual(second_action["res_id"], direct_delivery.id)
+
+        trailer = self.env["tf.dispatch.trailer"].create({
+            "name": "DIRECT-TRAILER",
+            "current_location": "Port",
+        })
+        direct_ticket.write({
+            "trailer_id": trailer.id,
+            "trailer_destination_location": "Client",
+        })
+        direct_ticket.action_complete()
+        plan.invalidate_recordset(["tf_container_status", "tf_dispatch_progress"])
+        self.assertEqual(plan.tf_container_status, "picked_up")
         self.assertEqual(plan.tf_dispatch_progress, "completed")
 
     def test_sales_order_approval_creates_container_and_export_flow(self):

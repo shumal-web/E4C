@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
 {
     "name": "TF Container Tracking",
-    "version": "19.0.2.5.4",
+    "version": "19.0.2.6.0",
     "category": "Inventory/Sales",
     "summary": "Container serial planning, piece-to-container assignment, and tracking dashboard.",
     "author": "E4C",
     "license": "LGPL-3",
-    "depends": ["tf_serial_quote_attributes", "sale_stock", "stock", "mail"],
+    "depends": ["tf_serial_quote_attributes", "sale_stock", "sale_management", "stock", "mail"],
     "data": [
         "security/ir.model.access.csv",
         "views/product_views.xml",
+        "views/sale_order_template_views.xml",
         "views/sale_order_views.xml",
         "views/sale_serial_wizard_views.xml",
         "views/stock_picking_views.xml",

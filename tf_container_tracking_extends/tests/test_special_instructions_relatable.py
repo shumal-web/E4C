@@ -19,6 +19,11 @@ class TestSpecialInstructionsRelatable(TransactionCase):
             "partner_id": self.partner.id,
             "tf_special_instructions": "Initial Special Instruction Note",
         })
+        self.tag = self.env["crm.tag"].create({
+            "name": "Urgent Dispatch",
+            "color": 2,
+        })
+        self.sale_order.tag_ids = [(6, 0, [self.tag.id])]
         self.sale_line = self.env["sale.order.line"].create({
             "order_id": self.sale_order.id,
             "product_id": self.product.id,
@@ -39,6 +44,7 @@ class TestSpecialInstructionsRelatable(TransactionCase):
             "tf_is_container_product": True,
         })
         self.assertEqual(plan.tf_special_instructions, "Initial Special Instruction Note")
+        self.assertEqual(plan.tf_sale_tag_ids, self.tag)
 
         # 3. Check tf.dispatch.ticket
         ticket = self.env["tf.dispatch.ticket"].create({
@@ -46,7 +52,9 @@ class TestSpecialInstructionsRelatable(TransactionCase):
             "container_plan_id": plan.id,
         })
         self.assertEqual(ticket.tf_special_instructions, "Initial Special Instruction Note")
+        self.assertEqual(ticket.tf_sale_tag_ids, self.tag)
         self.assertIn("Special Instructions: Initial Special Instruction Note", ticket.whatsapp_message_preview)
+        self.assertIn("Tags: Urgent Dispatch", ticket.whatsapp_message_preview)
 
         # 4. Check stock.picking
         incoming_type = self.env["stock.picking.type"].search([
@@ -65,6 +73,7 @@ class TestSpecialInstructionsRelatable(TransactionCase):
             "tf_container_plan_id": plan.id,
         })
         self.assertEqual(picking.tf_special_instructions, "Initial Special Instruction Note")
+        self.assertEqual(picking.tf_sale_tag_ids, self.tag)
 
     def test_update_from_dispatch_ticket_propagates(self):
         plan = self.env["tf.sale.serial.plan"].create({
@@ -130,18 +139,21 @@ class TestSpecialInstructionsRelatable(TransactionCase):
             view_type="form",
         )
         self.assertIn("tf_special_instructions", dispatch_view["arch"])
+        self.assertIn("tf_sale_tag_ids", dispatch_view["arch"])
 
         picking_view = self.env["stock.picking"].get_view(
             view_id=self.env.ref("tf_container_tracking.view_picking_form_tf_sale_order_link").id,
             view_type="form",
         )
         self.assertIn("tf_special_instructions", picking_view["arch"])
+        self.assertIn("tf_sale_tag_ids", picking_view["arch"])
 
         container_view = self.env["tf.sale.serial.plan"].get_view(
             view_id=self.env.ref("tf_container_tracking.view_tf_container_dashboard_form").id,
             view_type="form",
         )
         self.assertIn("tf_special_instructions", container_view["arch"])
+        self.assertIn("tf_sale_tag_ids", container_view["arch"])
 
     def test_duplicated_sale_order_resets_flow_state_to_draft(self):
         self.sale_order.write({"tf_flow_state": "approved"})
