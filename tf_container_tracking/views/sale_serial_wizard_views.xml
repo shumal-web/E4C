@@ -54,6 +54,10 @@
             </xpath>
 
             <xpath expr="//footer/button[@name='action_apply']" position="before">
+                <button name="action_tf_convert_cm_to_inches"
+                        type="object"
+                        string="Convert CM to Inches"
+                        class="btn-secondary"/>
                 <button name="action_assign"
                         type="object"
                         string="Assign"

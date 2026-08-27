@@ -64,6 +64,18 @@
             <xpath expr="//group[@name='order_details']/field[@name='date_order'][last()]" position="after">
                 <field name="tf_address_note" widget="text" placeholder="Address details..."/>
                 <field name="tf_special_instructions" widget="text" placeholder="Special instructions..."/>
+                <separator string="E4C Credit Control"/>
+                <field name="tf_credit_state" readonly="1"/>
+                <field name="tf_credit_clear_date" readonly="1"/>
+                <field name="tf_partner_credit_limit" widget="monetary" options="{'currency_field': 'currency_id'}" readonly="1"/>
+                <field name="tf_partner_credit_used" widget="monetary" options="{'currency_field': 'currency_id'}" readonly="1"/>
+                <field name="tf_partner_credit_available" widget="monetary" options="{'currency_field': 'currency_id'}" readonly="1"/>
+                <field name="tf_partner_credit_over_limit" readonly="1"/>
+                <button name="action_tf_clear_credit"
+                        type="object"
+                        string="Clear E4C Credit"
+                        class="btn-secondary"
+                        invisible="tf_credit_state == 'cleared'"/>
             </xpath>
 
             <xpath expr="//page[@name='other_information']//field[@name='client_order_ref']" position="attributes">
@@ -74,7 +86,9 @@
                 <attribute name="invisible">1</attribute>
             </xpath>
 
-            <xpath expr="//label[@for='pricelist_id']" position="attributes">
+            <xpath expr="//label[@for='pricelist_id']" position="replace"/>
+            <xpath expr="//button[@name='action_update_prices']" position="replace"/>
+            <xpath expr="//field[@name='pricelist_id']" position="attributes">
                 <attribute name="invisible">1</attribute>
             </xpath>
             <xpath expr="//div[field[@name='pricelist_id']]" position="attributes">

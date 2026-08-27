@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_partner_form_tf_e4c_credit" model="ir.ui.view">
+        <field name="name">res.partner.form.tf.e4c.credit</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='sales_purchases']//group[@name='sale']" position="inside">
+                <separator string="E4C Credit Control"/>
+                <field name="tf_credit_limit" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                <field name="tf_credit_used" widget="monetary" options="{'currency_field': 'currency_id'}" readonly="1"/>
+                <field name="tf_credit_available" widget="monetary" options="{'currency_field': 'currency_id'}" readonly="1"/>
+                <field name="tf_credit_over_limit" readonly="1"/>
+                <button name="action_tf_clear_credit_now"
+                        type="object"
+                        string="Clear E4C Credit Now"
+                        class="btn-secondary"
+                        invisible="tf_credit_used &lt;= 0"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_partner_tree_tf_e4c_credit" model="ir.ui.view">
+        <field name="name">res.partner.list.tf.e4c.credit</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='email']" position="after">
+                <field name="tf_credit_limit" optional="hide"/>
+                <field name="tf_credit_used" optional="hide"/>
+                <field name="tf_credit_available" optional="hide"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

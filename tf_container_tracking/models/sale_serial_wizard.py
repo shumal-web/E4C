@@ -44,6 +44,42 @@ class TfSaleSerialWizard(models.TransientModel):
         string="Weight Unit",
     )
 
+    def _tf_cm_to_inches(self, value):
+        return round((value or 0.0) / 2.54, 2)
+
+    def action_tf_convert_cm_to_inches(self):
+        self.ensure_one()
+        converted = False
+
+        if self.tf_assign_dimension_unit == "cm":
+            self.write({
+                "tf_assign_length": self._tf_cm_to_inches(self.tf_assign_length),
+                "tf_assign_width": self._tf_cm_to_inches(self.tf_assign_width),
+                "tf_assign_height": self._tf_cm_to_inches(self.tf_assign_height),
+                "tf_assign_dimension_unit": "in",
+            })
+            converted = True
+
+        for line in self.line_ids.filtered(lambda item: item.tf_dimension_unit == "cm"):
+            line.write({
+                "tf_length": self._tf_cm_to_inches(line.tf_length),
+                "tf_width": self._tf_cm_to_inches(line.tf_width),
+                "tf_height": self._tf_cm_to_inches(line.tf_height),
+                "tf_dimension_unit": "in",
+            })
+            converted = True
+
+        if not converted:
+            raise UserError(_("No dimensions with Dim Unit = cm were found to convert."))
+
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "tf.sale.serial.wizard",
+            "res_id": self.id,
+            "view_mode": "form",
+            "target": "new",
+        }
+
     @api.depends("order_line_id.order_id.order_line.tf_serial_plan_ids.tf_is_container_product")
     def _compute_tf_has_container_plans(self):
         for wizard in self:

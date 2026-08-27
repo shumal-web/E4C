@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from datetime import timedelta
+
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
@@ -42,6 +44,90 @@ class SaleOrder(models.Model):
     tf_special_instructions = fields.Text(
         string="Special Instructions",
     )
+    tf_credit_state = fields.Selection(
+        [
+            ("active", "Active"),
+            ("pending_clear", "Pending 60-Day Clear"),
+            ("cleared", "Cleared"),
+        ],
+        string="E4C Credit Status",
+        default="active",
+        copy=False,
+        tracking=True,
+    )
+    tf_credit_clear_date = fields.Date(
+        string="E4C Credit Clear Date",
+        copy=False,
+        tracking=True,
+    )
+    tf_credit_cleared_on = fields.Date(
+        string="E4C Credit Cleared On",
+        copy=False,
+        readonly=True,
+    )
+    tf_credit_cleared_by_id = fields.Many2one(
+        "res.users",
+        string="E4C Credit Cleared By",
+        copy=False,
+        readonly=True,
+    )
+    tf_partner_credit_limit = fields.Monetary(
+        string="Customer E4C Credit Limit",
+        currency_field="currency_id",
+        compute="_compute_tf_partner_credit_fields",
+    )
+    tf_partner_credit_used = fields.Monetary(
+        string="Customer E4C Credit Used",
+        currency_field="currency_id",
+        compute="_compute_tf_partner_credit_fields",
+    )
+    tf_partner_credit_available = fields.Monetary(
+        string="Customer E4C Credit Available",
+        currency_field="currency_id",
+        compute="_compute_tf_partner_credit_fields",
+    )
+    tf_partner_credit_over_limit = fields.Boolean(
+        string="Customer Over E4C Credit Limit",
+        compute="_compute_tf_partner_credit_fields",
+    )
+
+    @api.depends(
+        "partner_id",
+        "currency_id",
+        "partner_id.tf_credit_limit",
+        "partner_id.tf_credit_used",
+        "partner_id.tf_credit_available",
+        "partner_id.tf_credit_over_limit",
+    )
+    def _compute_tf_partner_credit_fields(self):
+        today = fields.Date.context_today(self)
+        for order in self:
+            partner = order.partner_id.commercial_partner_id
+            if not partner:
+                order.tf_partner_credit_limit = 0.0
+                order.tf_partner_credit_used = 0.0
+                order.tf_partner_credit_available = 0.0
+                order.tf_partner_credit_over_limit = False
+                continue
+            order.tf_partner_credit_limit = partner.currency_id._convert(
+                partner.tf_credit_limit,
+                order.currency_id,
+                order.company_id or self.env.company,
+                today,
+            )
+            order.tf_partner_credit_used = partner.currency_id._convert(
+                partner.tf_credit_used,
+                order.currency_id,
+                order.company_id or self.env.company,
+                today,
+            )
+            order.tf_partner_credit_available = partner.currency_id._convert(
+                partner.tf_credit_available,
+                order.currency_id,
+                order.company_id or self.env.company,
+                today,
+            )
+            order.tf_partner_credit_over_limit = partner.tf_credit_over_limit
 
     def _compute_tf_container_tracking_count(self):
         grouped = self.env["tf.sale.serial.plan"].read_group(
@@ -110,6 +196,11 @@ class SaleOrder(models.Model):
         res = super().action_confirm()
         self.filtered(lambda order: order.tf_flow_state == "draft").write({"tf_flow_state": "to_approve"})
         return res
+
+    def _create_invoices(self, grouped=False, final=False, date=None):
+        invoices = super()._create_invoices(grouped=grouped, final=final, date=date)
+        self._tf_schedule_credit_clear_for_invoiced()
+        return invoices
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -263,4 +354,48 @@ class SaleOrder(models.Model):
 
     def action_tf_mark_flow_completed(self):
         self.write({"tf_flow_state": "completed"})
+        return True
+
+    def _tf_schedule_credit_clear_for_invoiced(self):
+        today = fields.Date.context_today(self)
+        clear_date = today + timedelta(days=60)
+        to_schedule = self.filtered(
+            lambda order: order.state in ("sale", "done")
+            and order.invoice_status == "invoiced"
+            and order.tf_credit_state != "cleared"
+            and not order.tf_credit_clear_date
+        )
+        if to_schedule:
+            to_schedule.write({
+                "tf_credit_state": "pending_clear",
+                "tf_credit_clear_date": clear_date,
+            })
+        return True
+
+    def action_tf_clear_credit(self):
+        self.write({
+            "tf_credit_state": "cleared",
+            "tf_credit_clear_date": False,
+            "tf_credit_cleared_on": fields.Date.context_today(self),
+            "tf_credit_cleared_by_id": self.env.user.id,
+        })
+        return True
+
+    @api.model
+    def _cron_tf_process_customer_credit_limits(self):
+        today = fields.Date.context_today(self)
+        orders_to_schedule = self.search([
+            ("state", "in", ("sale", "done")),
+            ("invoice_status", "=", "invoiced"),
+            ("tf_credit_state", "!=", "cleared"),
+            ("tf_credit_clear_date", "=", False),
+        ])
+        orders_to_schedule._tf_schedule_credit_clear_for_invoiced()
+
+        orders_to_clear = self.search([
+            ("tf_credit_state", "=", "pending_clear"),
+            ("tf_credit_clear_date", "!=", False),
+            ("tf_credit_clear_date", "<=", today),
+        ])
+        orders_to_clear.action_tf_clear_credit()
         return True

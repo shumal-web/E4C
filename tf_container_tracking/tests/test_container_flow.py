@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
+from datetime import timedelta
+
 from lxml import etree
 
+from odoo import fields
 from odoo.tests.common import TransactionCase
 from odoo.exceptions import AccessError, UserError, ValidationError
 
@@ -90,8 +93,12 @@ class TestContainerFlow(TransactionCase):
         self.assertIn("tf_flow_state", sale_model._fields)
         self.assertIn("tf_address_note", sale_model._fields)
         self.assertIn("tf_special_instructions", sale_model._fields)
+        self.assertIn("tf_credit_state", sale_model._fields)
+        self.assertIn("tf_partner_credit_limit", sale_model._fields)
         self.assertIn("tf_shipment_type", self.env["sale.order.template"]._fields)
         self.assertIn("tf_direct_container_to_client", self.env["product.template"]._fields)
+        self.assertIn("tf_credit_limit", self.env["res.partner"]._fields)
+        self.assertIn("tf_credit_used", self.env["res.partner"]._fields)
 
         form_view = sale_model.get_view(
             view_id=self.env.ref("sale.view_order_form").id,
@@ -103,6 +110,8 @@ class TestContainerFlow(TransactionCase):
         self.assertIn("tf_flow_state", form_view["arch"])
         self.assertIn("tf_address_note", form_view["arch"])
         self.assertIn("tf_special_instructions", form_view["arch"])
+        self.assertIn("tf_credit_state", form_view["arch"])
+        self.assertIn("tf_partner_credit_limit", form_view["arch"])
         self.assertIn("client_order_ref", form_view["arch"])
         self.assertIn('open_attachments="True"', form_view["arch"])
 
@@ -113,6 +122,15 @@ class TestContainerFlow(TransactionCase):
         self.assertIn("tf_flow_state", sale_order_fields)
         self.assertIn("tf_address_note", sale_order_fields)
         self.assertIn("tf_special_instructions", sale_order_fields)
+        self.assertIn("tf_credit_state", sale_order_fields)
+        self.assertIn("tf_partner_credit_limit", sale_order_fields)
+
+        partner_view = self.env["res.partner"].get_view(
+            view_id=self.env.ref("base.view_partner_form").id,
+            view_type="form",
+        )
+        self.assertIn("tf_credit_limit", partner_view["arch"])
+        self.assertIn("tf_credit_used", partner_view["arch"])
 
         quotation_tree = sale_model.get_view(
             view_id=self.env.ref("sale.view_quotation_tree_with_onboarding").id,
@@ -258,6 +276,74 @@ class TestContainerFlow(TransactionCase):
         form_arch = etree.fromstring(form_view["arch"].encode())
         qty_field = form_arch.xpath("//field[@name='qty']")[0]
         self.assertEqual(qty_field.get("readonly"), "0")
+
+    def test_serial_wizard_converts_cm_to_inches(self):
+        partner = self._create_partner("Dimension Conversion Partner")
+        product = self._create_product("Dimension Conversion Case")
+        sale_order = self.env["sale.order"].create({"partner_id": partner.id})
+        line = self._create_so_line(sale_order, product, 2.0)
+
+        wizard = self._open_wizard(line)
+        ordered_lines = wizard.line_ids.sorted(lambda item: (item.sequence, item.id))
+        ordered_lines[0].write({
+            "tf_length": 10.0,
+            "tf_width": 5.0,
+            "tf_height": 2.54,
+            "tf_dimension_unit": "cm",
+        })
+        ordered_lines[1].write({
+            "tf_length": 1.0,
+            "tf_width": 1.0,
+            "tf_height": 1.0,
+            "tf_dimension_unit": "in",
+        })
+
+        wizard.action_tf_convert_cm_to_inches()
+
+        converted_line, untouched_line = wizard.line_ids.sorted(lambda item: (item.sequence, item.id))
+        self.assertEqual(converted_line.tf_dimension_unit, "in")
+        self.assertEqual(converted_line.tf_length, 3.94)
+        self.assertEqual(converted_line.tf_width, 1.97)
+        self.assertEqual(converted_line.tf_height, 1.0)
+        self.assertEqual(untouched_line.tf_length, 1.0)
+        self.assertEqual(untouched_line.tf_dimension_unit, "in")
+
+    def test_customer_credit_limit_tracks_manual_and_60_day_clear(self):
+        partner = self._create_partner("Credit Control Partner")
+        partner.tf_credit_limit = 0.5
+        product = self.env["product.template"].create({
+            "name": "Credit Control Service",
+            "type": "service",
+            "sale_ok": True,
+            "purchase_ok": False,
+            "invoice_policy": "order",
+            "list_price": 150.0,
+        }).product_variant_id
+
+        sale_order = self.env["sale.order"].create({"partner_id": partner.id})
+        self._create_so_line(sale_order, product, 1.0)
+        sale_order.action_confirm()
+
+        partner.invalidate_recordset(["tf_credit_used", "tf_credit_available", "tf_credit_over_limit"])
+        self.assertEqual(partner.tf_credit_used, sale_order.amount_total)
+        self.assertTrue(partner.tf_credit_over_limit)
+
+        partner.action_tf_clear_credit_now()
+        sale_order.invalidate_recordset(["tf_credit_state"])
+        partner.invalidate_recordset(["tf_credit_used", "tf_credit_available", "tf_credit_over_limit"])
+        self.assertEqual(sale_order.tf_credit_state, "cleared")
+        self.assertEqual(partner.tf_credit_used, 0.0)
+
+        sale_order.write({
+            "tf_credit_state": "pending_clear",
+            "tf_credit_clear_date": fields.Date.context_today(self) - timedelta(days=1),
+            "tf_credit_cleared_on": False,
+            "tf_credit_cleared_by_id": False,
+        })
+        self.env["sale.order"]._cron_tf_process_customer_credit_limits()
+        sale_order.invalidate_recordset(["tf_credit_state", "tf_credit_clear_date"])
+        self.assertEqual(sale_order.tf_credit_state, "cleared")
+        self.assertFalse(sale_order.tf_credit_clear_date)
 
     def test_new_product_defaults_to_service_and_logistics_flags_force_stock_defaults(self):
         self.assertEqual(
@@ -926,6 +1012,7 @@ class TestContainerFlow(TransactionCase):
             "location_dest_id": dest.id,
         })
         picking.action_confirm()
+        picking.action_assign()
         line = move.move_line_ids[:1]
         self.assertTrue(line)
         line._compute_tf_allowed_lot_ids()
