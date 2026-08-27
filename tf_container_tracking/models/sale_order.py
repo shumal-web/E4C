@@ -41,6 +41,12 @@ class SaleOrder(models.Model):
     tf_address_note = fields.Text(
         string="Address",
     )
+    tf_dispatch_contact_id = fields.Many2one(
+        "res.partner",
+        string="Dispatch Contact",
+        tracking=True,
+        help="Contact person copied to dispatch tickets created from this order.",
+    )
     tf_special_instructions = fields.Text(
         string="Special Instructions",
     )
@@ -210,6 +216,10 @@ class SaleOrder(models.Model):
                 template = self.env["sale.order.template"].browse(template_id)
                 if template.exists() and template.tf_shipment_type:
                     vals["tf_shipment_type"] = template.tf_shipment_type
+            if vals.get("partner_shipping_id") and not vals.get("tf_dispatch_contact_id"):
+                vals["tf_dispatch_contact_id"] = vals["partner_shipping_id"]
+            elif vals.get("partner_id") and not vals.get("tf_dispatch_contact_id"):
+                vals["tf_dispatch_contact_id"] = vals["partner_id"]
         orders = super().create(vals_list)
         for order, vals in zip(orders, vals_list):
             template = order.sale_order_template_id
@@ -220,6 +230,8 @@ class SaleOrder(models.Model):
                 and order.tf_shipment_type != template.tf_shipment_type
             ):
                 order.tf_shipment_type = template.tf_shipment_type
+            if not order.tf_dispatch_contact_id:
+                order.tf_dispatch_contact_id = order.partner_shipping_id or order.partner_id
         return orders
 
     def write(self, vals):
@@ -227,6 +239,8 @@ class SaleOrder(models.Model):
             template = self.env["sale.order.template"].browse(vals["sale_order_template_id"])
             if template.exists() and template.tf_shipment_type:
                 vals = dict(vals, tf_shipment_type=template.tf_shipment_type)
+        if vals.get("partner_shipping_id") and "tf_dispatch_contact_id" not in vals:
+            vals = dict(vals, tf_dispatch_contact_id=vals["partner_shipping_id"])
         return super().write(vals)
 
     @api.onchange("sale_order_template_id")
@@ -235,6 +249,8 @@ class SaleOrder(models.Model):
         for order in self:
             if order.sale_order_template_id and order.sale_order_template_id.tf_shipment_type:
                 order.tf_shipment_type = order.sale_order_template_id.tf_shipment_type
+            if order.partner_shipping_id and not order.tf_dispatch_contact_id:
+                order.tf_dispatch_contact_id = order.partner_shipping_id
         return res
 
     def _tf_has_direct_container_to_client_flow(self):
@@ -271,6 +287,7 @@ class SaleOrder(models.Model):
                     missing = range(len(existing) + 1, target + 1)
                 for index in missing:
                     seeded_name = order._tf_container_seed(index)
+                    product_template = line.product_id.product_tmpl_id
                     plan_model.create(
                         {
                             "order_id": order.id,
@@ -280,8 +297,14 @@ class SaleOrder(models.Model):
                             "tf_container_number": seeded_name,
                             "tf_internal_status": internal_status,
                             "tf_container_status": "on_water" if order.tf_shipment_type == "import" else "ready",
+                            "tf_container_type": product_template.tf_container_type,
+                            "tf_import_export": order.tf_shipment_type,
                         }
                     )
+                existing.filtered(lambda p: not p.tf_import_export).write({"tf_import_export": order.tf_shipment_type})
+                existing.filtered(lambda p: not p.tf_container_type and line.product_id.product_tmpl_id.tf_container_type).write(
+                    {"tf_container_type": line.product_id.product_tmpl_id.tf_container_type}
+                )
                 existing.filtered(lambda p: p.tf_internal_status != internal_status).with_context(
                     tf_auto_internal_status=True
                 ).write({"tf_internal_status": internal_status})
@@ -353,6 +376,9 @@ class SaleOrder(models.Model):
         return True
 
     def action_tf_mark_flow_completed(self):
+        for order in self:
+            if order.tf_flow_state != "approved":
+                raise UserError(_("Only approved Sales Orders can be completed."))
         self.write({"tf_flow_state": "completed"})
         return True
 

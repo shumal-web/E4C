@@ -6,12 +6,13 @@
         <field name="arch" type="xml">
             <list string="Container Tracking"
                   create="false"
+                  decoration-bf="tf_eta_overdue or tf_lfd_overdue"
+                  decoration-danger="tf_eta_overdue or tf_lfd_overdue or tf_container_status == 'returned'"
                   decoration-info="tf_container_status == 'on_water'"
                   decoration-warning="tf_container_status == 'at_port'"
                   decoration-success="tf_container_status == 'ready'"
                   decoration-primary="tf_container_status == 'picked_up'"
-                  decoration-muted="tf_container_status == 'de_stuffed'"
-                  decoration-danger="tf_container_status == 'returned'">
+                  decoration-muted="tf_container_status == 'de_stuffed'">
                 <field name="order_name" string="SO"/>
                 <field name="serial_name" string="Serial"/>
                 <field name="tf_container_number"/>
@@ -27,6 +28,7 @@
                 <field name="tf_internal_status"
                        widget="badge"
                        decoration-info="tf_internal_status == 'for_approval'"
+                       decoration-danger="tf_internal_status in ['hold_ssl', 'hold_cbsa']"
                        decoration-muted="tf_internal_status == 'pickup'"
                        decoration-primary="tf_internal_status == 'tracking'"
                        decoration-warning="tf_internal_status == 'planning'"
@@ -43,10 +45,15 @@
                 <field name="tf_container_location"/>
                 <field name="tf_eta"/>
                 <field name="tf_lfd"/>
+                <field name="tf_cutoff_date"/>
                 <field name="tf_ssl"/>
                 <field name="tf_container_type"/>
-                <field name="tf_chassis_no"/>
                 <field name="tf_pubk_no"/>
+                <field name="tf_weight"/>
+                <field name="tf_weight_unit"/>
+                <field name="tf_import_export"/>
+                <field name="tf_eta_overdue" column_invisible="True"/>
+                <field name="tf_lfd_overdue" column_invisible="True"/>
                 <field name="tf_piece_count" sum="Pieces"/>
             </list>
         </field>
@@ -117,6 +124,7 @@
                             <field name="tf_internal_status" widget="badge"
                                    readonly="1"
                                    decoration-info="tf_internal_status == 'for_approval'"
+                                   decoration-danger="tf_internal_status in ['hold_ssl', 'hold_cbsa']"
                                    decoration-muted="tf_internal_status == 'pickup'"
                                    decoration-primary="tf_internal_status == 'tracking'"
                                    decoration-warning="tf_internal_status == 'planning'"
@@ -132,12 +140,15 @@
                             <field name="tf_ready_on"/>
                             <field name="tf_ssl"/>
                             <field name="tf_container_type"/>
+                            <field name="tf_import_export"/>
                         </group>
                         <group>
                             <field name="tf_eta"/>
                             <field name="tf_lfd"/>
-                            <field name="tf_chassis_no"/>
+                            <field name="tf_cutoff_date"/>
                             <field name="tf_pubk_no"/>
+                            <field name="tf_weight"/>
+                            <field name="tf_weight_unit"/>
                         </group>
                     </group>
                 </sheet>
@@ -161,12 +172,15 @@
                 <field name="tf_container_location"/>
                 <field name="tf_eta"/>
                 <field name="tf_lfd"/>
+                <field name="tf_cutoff_date"/>
                 <field name="tf_ssl"/>
                 <field name="tf_container_type"/>
-                <field name="tf_chassis_no"/>
                 <field name="tf_pubk_no"/>
+                <field name="tf_import_export"/>
 
                 <filter string="For Approval" name="internal_for_approval" domain="[('tf_internal_status', '=', 'for_approval')]"/>
+                <filter string="Hold SSL" name="internal_hold_ssl" domain="[('tf_internal_status', '=', 'hold_ssl')]"/>
+                <filter string="Hold CBSA" name="internal_hold_cbsa" domain="[('tf_internal_status', '=', 'hold_cbsa')]"/>
                 <filter string="Tracking" name="internal_tracking" domain="[('tf_internal_status', '=', 'tracking')]"/>
                 <filter string="Planning" name="internal_planning" domain="[('tf_internal_status', '=', 'planning')]"/>
                 <filter string="Dispatch" name="internal_dispatch" domain="[('tf_internal_status', '=', 'dispatch')]"/>
@@ -186,6 +200,7 @@
                     <filter string="Container Status" name="group_container_status" domain="[]" context="{'group_by': 'tf_container_status'}"/>
                     <filter string="SSL" name="group_ssl" domain="[]" context="{'group_by': 'tf_ssl'}"/>
                     <filter string="Type" name="group_type" domain="[]" context="{'group_by': 'tf_container_type'}"/>
+                    <filter string="Import/Export" name="group_import_export" domain="[]" context="{'group_by': 'tf_import_export'}"/>
                 </group>
             </search>
         </field>
@@ -216,6 +231,24 @@
         <field name="binding_view_types">form,list</field>
         <field name="state">code</field>
         <field name="code">action = records.action_undo_ready_dispatch_receiving()</field>
+    </record>
+
+    <record id="action_tf_container_copy_numbers" model="ir.actions.server">
+        <field name="name">Copy Container Numbers</field>
+        <field name="model_id" ref="tf_serial_quote_attributes.model_tf_sale_serial_plan"/>
+        <field name="binding_model_id" ref="tf_serial_quote_attributes.model_tf_sale_serial_plan"/>
+        <field name="binding_view_types">list,form</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_tf_copy_container_numbers()</field>
+    </record>
+
+    <record id="action_tf_container_bulk_update" model="ir.actions.server">
+        <field name="name">Bulk Update Status / ETA / LFD</field>
+        <field name="model_id" ref="tf_serial_quote_attributes.model_tf_sale_serial_plan"/>
+        <field name="binding_model_id" ref="tf_serial_quote_attributes.model_tf_sale_serial_plan"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_tf_open_bulk_update_wizard()</field>
     </record>
 
     <menuitem id="menu_tf_container_tracking_dashboard"

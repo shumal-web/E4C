@@ -5,6 +5,8 @@ from odoo.exceptions import AccessError, ValidationError
 
 INTERNAL_STATUS_SELECTION = [
     ("for_approval", "For Approval"),
+    ("hold_ssl", "Hold SSL"),
+    ("hold_cbsa", "Hold CBSA"),
     ("pickup", "Pickup"),
     ("tracking", "Tracking"),
     ("planning", "Planning"),
@@ -53,7 +55,7 @@ class TfSaleSerialPlan(models.Model):
         index=True,
         tracking=True,
     )
-    tf_port_to_destuff = fields.Char(string="Port to De-stuff", index=True, tracking=True)
+    tf_port_to_destuff = fields.Char(string="Origin", index=True, tracking=True)
     tf_container_status = fields.Selection(
         CONTAINER_STATUS_SELECTION,
         string="Container Status",
@@ -72,14 +74,26 @@ class TfSaleSerialPlan(models.Model):
     tf_container_location = fields.Char(string="Container Location", index=True, tracking=True)
     tf_eta = fields.Date(string="ETA", index=True, tracking=True)
     tf_lfd = fields.Date(string="LFD", index=True, tracking=True)
+    tf_cutoff_date = fields.Date(string="Cutoff", index=True, tracking=True)
     tf_ssl = fields.Char(string="SSL", index=True, tracking=True)
     tf_container_type = fields.Char(string="Type", index=True, tracking=True)
     tf_chassis_no = fields.Char(string="Chassis #", index=True, tracking=True)
     tf_pubk_no = fields.Char(string="PU/BK #", index=True, tracking=True)
+    tf_import_export = fields.Selection(
+        [
+            ("import", "Import"),
+            ("export", "Export"),
+        ],
+        string="Import/Export",
+        index=True,
+        tracking=True,
+    )
+    tf_eta_overdue = fields.Boolean(compute="_compute_tf_overdue_dates")
+    tf_lfd_overdue = fields.Boolean(compute="_compute_tf_overdue_dates")
 
     tf_container_plan_id = fields.Many2one(
         "tf.sale.serial.plan",
-        string="Container Serial",
+        string="Container Number",
         ondelete="set null",
         domain="[('order_id', '=', order_id), ('tf_is_container_product', '=', True)]",
         index=True,
@@ -100,6 +114,14 @@ class TfSaleSerialPlan(models.Model):
     def _compute_tf_piece_count(self):
         for plan in self:
             plan.tf_piece_count = len(plan.tf_piece_plan_ids)
+
+    @api.depends("tf_eta", "tf_lfd", "tf_dispatch_progress")
+    def _compute_tf_overdue_dates(self):
+        today = fields.Date.context_today(self)
+        for plan in self:
+            active = plan.tf_dispatch_progress not in ("delivery", "return", "completed")
+            plan.tf_eta_overdue = bool(active and plan.tf_eta and plan.tf_eta < today)
+            plan.tf_lfd_overdue = bool(active and plan.tf_lfd and plan.tf_lfd < today)
 
     @api.constrains("tf_container_plan_id", "tf_is_container_product", "order_id")
     def _check_tf_container_plan_id(self):
@@ -175,11 +197,13 @@ class TfSaleSerialPlan(models.Model):
             raise AccessError(_("Only Inventory Managers can change Internal Status."))
 
         transitions = {
-            "for_approval": {"pickup", "tracking", "planning"},
-            "pickup": {"tracking", "planning", "dispatch"},
-            "tracking": {"for_approval", "pickup", "planning", "dispatch"},
-            "planning": {"tracking", "dispatch"},
-            "dispatch": {"tracking"},
+            "for_approval": {"hold_ssl", "hold_cbsa", "pickup", "tracking", "planning"},
+            "hold_ssl": {"for_approval", "hold_cbsa", "pickup", "tracking", "planning"},
+            "hold_cbsa": {"for_approval", "hold_ssl", "pickup", "tracking", "planning"},
+            "pickup": {"for_approval", "hold_ssl", "hold_cbsa", "tracking", "planning", "dispatch"},
+            "tracking": {"for_approval", "hold_ssl", "hold_cbsa", "pickup", "planning", "dispatch"},
+            "planning": {"for_approval", "hold_ssl", "hold_cbsa", "tracking", "dispatch"},
+            "dispatch": {"for_approval", "hold_ssl", "hold_cbsa", "tracking"},
         }
         label_map = dict(self._fields["tf_internal_status"].selection)
 

@@ -214,7 +214,8 @@ class TestContainerFlow(TransactionCase):
         self.assertEqual(dispatch.tf_address_note, "Dock door 4")
         self.assertIn("Container: REAL-CONT-001", dispatch.whatsapp_message_preview)
         self.assertIn("Customer Reference: CUST-REF-001", dispatch.whatsapp_message_preview)
-        self.assertIn("Address: Dock door 4", dispatch.whatsapp_message_preview)
+        self.assertIn("Customer: Dispatch Container Number Partner", dispatch.whatsapp_message_preview)
+        self.assertIn("Contact: Dispatch Container Number Partner", dispatch.whatsapp_message_preview)
         self.assertEqual(
             container_plan.with_context(tf_display_container_number=True).display_name,
             "REAL-CONT-001",
@@ -1049,16 +1050,48 @@ class TestContainerFlow(TransactionCase):
 
         dispatch = self.env["tf.dispatch.ticket"].browse(action["res_id"])
         self.assertTrue(dispatch.internal_transfer_id)
+        self.assertTrue(dispatch.delivery_order_id)
         self.assertEqual(dispatch.sale_order_id, sale_order)
-        self.assertEqual(dispatch.dispatch_type, "standalone")
+        self.assertEqual(dispatch.dispatch_type, "import_dispatch")
         self.assertEqual(dispatch.container_plan_id, container_plan)
 
         transfer = dispatch.internal_transfer_id
         self.assertEqual(transfer.picking_type_code, "internal")
         self.assertEqual(set(transfer.move_line_ids.mapped("lot_id").ids), set(selected_lots.ids))
 
+        delivery = dispatch.delivery_order_id
+        self.assertEqual(delivery.picking_type_code, "outgoing")
+        self.assertEqual(set(delivery.move_line_ids.mapped("lot_id").ids), set(selected_lots.ids))
+
         action_again = selected_lots.action_tf_truck_out_selected()
         self.assertEqual(action_again.get("res_id"), dispatch.id)
+
+    def test_inventory_lot_truck_out_allows_multiple_sales_orders_for_same_customer(self):
+        partner = self._create_partner("Multi SO Truck Out Partner")
+        product = self._create_product("Multi SO Truck Out Case")
+        sale_order_1 = self.env["sale.order"].create({"partner_id": partner.id})
+        sale_order_2 = self.env["sale.order"].create({"partner_id": partner.id})
+        line_1 = self._create_so_line(sale_order_1, product, 1.0)
+        line_2 = self._create_so_line(sale_order_2, product, 1.0)
+
+        self._open_wizard(line_1).action_apply()
+        self._open_wizard(line_2).action_apply()
+        for sale_order, line in ((sale_order_1, line_1), (sale_order_2, line_2)):
+            sale_order.tf_flow_state = "approved"
+            self._receive_sale_lines(sale_order, line)
+
+        selected_lots = line_1.tf_serial_plan_ids[:1].lot_id | line_2.tf_serial_plan_ids[:1].lot_id
+        self.assertEqual(len(selected_lots), 2)
+
+        action = selected_lots.action_tf_truck_out_selected()
+        self.assertEqual(action.get("res_model"), "tf.dispatch.ticket")
+
+        dispatch = self.env["tf.dispatch.ticket"].browse(action["res_id"])
+        self.assertEqual(dispatch.sale_order_ids, sale_order_1 | sale_order_2)
+        self.assertTrue(dispatch.internal_transfer_id)
+        self.assertTrue(dispatch.delivery_order_id)
+        self.assertEqual(set(dispatch.internal_transfer_id.move_line_ids.mapped("lot_id").ids), set(selected_lots.ids))
+        self.assertEqual(set(dispatch.delivery_order_id.move_line_ids.mapped("lot_id").ids), set(selected_lots.ids))
 
     def test_receiving_generate_serial_dialog_defaults_and_generation_do_not_crash(self):
         partner = self._create_partner("Generate Dialog Partner")

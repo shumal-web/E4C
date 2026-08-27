@@ -39,21 +39,28 @@
                         string="Export"
                         class="btn-secondary"
                         invisible="tf_shipment_type != 'export' or tf_flow_state != 'approved'"/>
+                <button name="action_tf_mark_flow_completed"
+                        type="object"
+                        string="Complete"
+                        class="btn-primary"
+                        groups="stock.group_stock_manager"
+                        invisible="tf_flow_state != 'approved'"/>
                 <field name="tf_flow_state" widget="statusbar" statusbar_visible="draft,to_approve,approved,completed"/>
             </xpath>
 
             <xpath expr="//button[@id='create_invoice']" position="attributes">
-                <attribute name="invisible">1</attribute>
+                <attribute name="invisible">tf_flow_state != 'completed'</attribute>
             </xpath>
             <xpath expr="//button[@id='create_invoice_percentage']" position="attributes">
-                <attribute name="invisible">1</attribute>
+                <attribute name="invisible">tf_flow_state != 'completed'</attribute>
             </xpath>
             <xpath expr="//button[@name='%(sale.action_view_sale_advance_payment_inv)d']" position="attributes">
-                <attribute name="invisible">1</attribute>
+                <attribute name="invisible">tf_flow_state != 'completed'</attribute>
             </xpath>
 
             <xpath expr="//sheet/group/group[1]" position="inside">
                 <field name="tf_shipment_type"/>
+                <field name="tf_dispatch_contact_id" options="{'no_create_edit': True}"/>
                 <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color', 'no_create_edit': True}"/>
             </xpath>
 
@@ -120,7 +127,7 @@
         <field name="inherit_id" ref="sale.view_order_tree"/>
         <field name="arch" type="xml">
             <xpath expr="//header/button[@name='%(sale.action_view_sale_advance_payment_inv)d']" position="attributes">
-                <attribute name="invisible">1</attribute>
+                <attribute name="invisible">tf_flow_state != 'completed'</attribute>
             </xpath>
             <xpath expr="//field[@name='state']" position="replace">
                 <field name="tf_flow_state"
@@ -144,7 +151,7 @@
         <field name="inherit_id" ref="sale.view_quotation_tree_with_onboarding"/>
         <field name="arch" type="xml">
             <xpath expr="//header/button[@name='%(sale.action_view_sale_advance_payment_inv)d']" position="attributes">
-                <attribute name="invisible">1</attribute>
+                <attribute name="invisible">tf_flow_state != 'completed'</attribute>
             </xpath>
             <xpath expr="//field[@name='state']" position="replace">
                 <field name="tf_flow_state"

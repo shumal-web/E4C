@@ -235,6 +235,18 @@ class StockPicking(models.Model):
                     "tf_weight_unit": plan.tf_weight_unit,
                     "tf_storage_rate": plan.tf_storage_rate,
                     "tf_location_note": plan.tf_location_note,
+                    "tf_internal_status": plan.tf_internal_status,
+                    "tf_port_to_destuff": plan.tf_port_to_destuff,
+                    "tf_container_status": plan.tf_container_status,
+                    "tf_container_location": plan.tf_container_location,
+                    "tf_eta": plan.tf_eta,
+                    "tf_lfd": plan.tf_lfd,
+                    "tf_cutoff_date": plan.tf_cutoff_date,
+                    "tf_ssl": plan.tf_ssl,
+                    "tf_container_type": plan.tf_container_type,
+                    "tf_chassis_no": plan.tf_chassis_no,
+                    "tf_pubk_no": plan.tf_pubk_no,
+                    "tf_import_export": plan.tf_import_export,
                 }
             )
         plan.lot_id = lot.id
@@ -378,10 +390,12 @@ class StockPicking(models.Model):
                 "tf_container_location": plan.tf_container_location,
                 "tf_eta": plan.tf_eta,
                 "tf_lfd": plan.tf_lfd,
+                "tf_cutoff_date": plan.tf_cutoff_date,
                 "tf_ssl": plan.tf_ssl,
                 "tf_container_type": plan.tf_container_type,
                 "tf_chassis_no": plan.tf_chassis_no,
                 "tf_pubk_no": plan.tf_pubk_no,
+                "tf_import_export": plan.tf_import_export,
             }
         )
         return picking
@@ -463,10 +477,12 @@ class StockPicking(models.Model):
                         "tf_container_location": serial_plan.tf_container_location,
                         "tf_eta": serial_plan.tf_eta,
                         "tf_lfd": serial_plan.tf_lfd,
+                        "tf_cutoff_date": serial_plan.tf_cutoff_date,
                         "tf_ssl": serial_plan.tf_ssl,
                         "tf_container_type": serial_plan.tf_container_type,
                         "tf_chassis_no": serial_plan.tf_chassis_no,
                         "tf_pubk_no": serial_plan.tf_pubk_no,
+                        "tf_import_export": serial_plan.tf_import_export,
                     })
                 if move_line.tf_container_plan_id:
                     continue
@@ -553,10 +569,12 @@ class StockPicking(models.Model):
                         "tf_container_location": move_line.tf_container_location,
                         "tf_eta": move_line.tf_eta,
                         "tf_lfd": move_line.tf_lfd,
+                        "tf_cutoff_date": move_line.tf_cutoff_date,
                         "tf_ssl": move_line.tf_ssl,
                         "tf_container_type": move_line.tf_container_type,
                         "tf_chassis_no": move_line.tf_chassis_no,
                         "tf_pubk_no": move_line.tf_pubk_no,
+                        "tf_import_export": move_line.tf_import_export,
                     }
                     move_line.lot_id.write(container_vals)
                     if serial_plan and serial_plan.tf_is_container_product:

@@ -23,10 +23,12 @@ CONTAINER_ATTRIBUTE_FIELDS = {
     "tf_container_location",
     "tf_eta",
     "tf_lfd",
+    "tf_cutoff_date",
     "tf_ssl",
     "tf_container_type",
     "tf_chassis_no",
     "tf_pubk_no",
+    "tf_import_export",
 }
 
 
@@ -40,7 +42,7 @@ class StockMoveLine(models.Model):
 
     tf_container_plan_id = fields.Many2one(
         "tf.sale.serial.plan",
-        string="Container Serial",
+        string="Container Number",
         index=True,
     )
 
@@ -49,7 +51,7 @@ class StockMoveLine(models.Model):
         string="Internal Status",
         default="for_approval",
     )
-    tf_port_to_destuff = fields.Char(string="Port to De-stuff")
+    tf_port_to_destuff = fields.Char(string="Origin")
     tf_container_status = fields.Selection(
         CONTAINER_STATUS_SELECTION,
         string="Container Status",
@@ -58,10 +60,18 @@ class StockMoveLine(models.Model):
     tf_container_location = fields.Char(string="Container Location")
     tf_eta = fields.Date(string="ETA")
     tf_lfd = fields.Date(string="LFD")
+    tf_cutoff_date = fields.Date(string="Cutoff")
     tf_ssl = fields.Char(string="SSL")
     tf_container_type = fields.Char(string="Type")
     tf_chassis_no = fields.Char(string="Chassis #")
     tf_pubk_no = fields.Char(string="PU/BK #")
+    tf_import_export = fields.Selection(
+        [
+            ("import", "Import"),
+            ("export", "Export"),
+        ],
+        string="Import/Export",
+    )
 
     tf_allowed_lot_ids = fields.Many2many(
         "stock.lot",

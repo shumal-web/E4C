@@ -54,10 +54,11 @@
                 <field name="tf_container_location" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_eta" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_lfd" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_cutoff_date" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_ssl" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_container_type" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
-                <field name="tf_chassis_no" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_pubk_no" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_import_export" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
             </xpath>
         </field>
     </record>
@@ -116,10 +117,11 @@
                 <field name="tf_container_location" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_eta" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_lfd" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_cutoff_date" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_ssl" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_container_type" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
-                <field name="tf_chassis_no" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_pubk_no" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_import_export" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
             </xpath>
         </field>
     </record>

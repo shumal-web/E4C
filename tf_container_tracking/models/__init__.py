@@ -5,6 +5,7 @@ from . import res_partner
 from . import sale_order
 from . import sale_order_line
 from . import sale_serial_plan
+from . import container_bulk_update
 from . import dispatch
 from . import sale_serial_wizard
 from . import stock_move

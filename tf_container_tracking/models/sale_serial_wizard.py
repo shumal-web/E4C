@@ -269,15 +269,21 @@ class TfSaleSerialWizard(models.TransientModel):
                 "tf_container_number": plan.tf_container_number if plan else vals.get("tf_container_number"),
                 "tf_internal_status": plan.tf_internal_status if plan else vals.get("tf_internal_status"),
                 "tf_port_to_destuff": plan.tf_port_to_destuff if plan else False,
-                "tf_container_status": plan.tf_container_status if plan else vals.get("tf_container_status"),
-                "tf_container_location": plan.tf_container_location if plan else False,
-                "tf_eta": plan.tf_eta if plan else False,
-                "tf_lfd": plan.tf_lfd if plan else False,
-                "tf_ssl": plan.tf_ssl if plan else False,
-                "tf_container_type": plan.tf_container_type if plan else False,
-                "tf_chassis_no": plan.tf_chassis_no if plan else False,
-                "tf_pubk_no": plan.tf_pubk_no if plan else False,
-            })
+                    "tf_container_status": plan.tf_container_status if plan else vals.get("tf_container_status"),
+                    "tf_container_location": plan.tf_container_location if plan else False,
+                    "tf_eta": plan.tf_eta if plan else False,
+                    "tf_lfd": plan.tf_lfd if plan else False,
+                    "tf_cutoff_date": plan.tf_cutoff_date if plan else False,
+                    "tf_ssl": plan.tf_ssl if plan else False,
+                    "tf_container_type": (
+                        plan.tf_container_type
+                        if plan
+                        else (sol.product_id.product_tmpl_id.tf_container_type if is_container else False)
+                    ),
+                    "tf_chassis_no": plan.tf_chassis_no if plan else False,
+                    "tf_pubk_no": plan.tf_pubk_no if plan else False,
+                    "tf_import_export": plan.tf_import_export if plan else sol.order_id.tf_shipment_type,
+                })
             patched_commands.append((0, 0, vals))
 
         res["line_ids"] = patched_commands
@@ -335,6 +341,8 @@ class TfSaleSerialWizard(models.TransientModel):
                         "serial_name": seeded_name,
                         "tf_container_number": seeded_name,
                         "tf_internal_status": "for_approval",
+                        "tf_container_type": self.product_id.product_tmpl_id.tf_container_type,
+                        "tf_import_export": self.order_id.tf_shipment_type,
                     },
                 )
             ]
@@ -493,10 +501,12 @@ class TfSaleSerialWizard(models.TransientModel):
                 "tf_container_location": line.tf_container_location,
                 "tf_eta": line.tf_eta,
                 "tf_lfd": line.tf_lfd,
+                "tf_cutoff_date": line.tf_cutoff_date,
                 "tf_ssl": line.tf_ssl,
                 "tf_container_type": line.tf_container_type,
                 "tf_chassis_no": line.tf_chassis_no,
                 "tf_pubk_no": line.tf_pubk_no,
+                "tf_import_export": line.tf_import_export,
             }
 
             existing_plan = False
@@ -540,13 +550,15 @@ class TfSaleSerialWizardLine(models.TransientModel):
 
     tf_container_plan_id = fields.Many2one(
         "tf.sale.serial.plan",
-        string="Container Serial",
+        string="Container Number",
     )
 
     tf_container_number = fields.Char(string="Container #")
     tf_internal_status = fields.Selection(
         [
             ("for_approval", "For Approval"),
+            ("hold_ssl", "Hold SSL"),
+            ("hold_cbsa", "Hold CBSA"),
             ("tracking", "Tracking"),
             ("planning", "Planning"),
             ("dispatch", "Dispatch"),
@@ -554,12 +566,13 @@ class TfSaleSerialWizardLine(models.TransientModel):
         string="Internal Status",
         default="for_approval",
     )
-    tf_port_to_destuff = fields.Char(string="Port to De-stuff")
+    tf_port_to_destuff = fields.Char(string="Origin")
     tf_container_status = fields.Selection(
         [
             ("on_water", "On the Water"),
             ("at_port", "At Port"),
             ("ready", "Ready"),
+            ("ready_for_return", "Ready for Return"),
             ("picked_up", "Picked Up"),
             ("de_stuffed", "De Stuffed"),
             ("returned", "Returned"),
@@ -570,10 +583,18 @@ class TfSaleSerialWizardLine(models.TransientModel):
     tf_container_location = fields.Char(string="Container Location")
     tf_eta = fields.Date(string="ETA")
     tf_lfd = fields.Date(string="LFD")
+    tf_cutoff_date = fields.Date(string="Cutoff")
     tf_ssl = fields.Char(string="SSL")
     tf_container_type = fields.Char(string="Type")
     tf_chassis_no = fields.Char(string="Chassis #")
     tf_pubk_no = fields.Char(string="PU/BK #")
+    tf_import_export = fields.Selection(
+        [
+            ("import", "Import"),
+            ("export", "Export"),
+        ],
+        string="Import/Export",
+    )
 
 
 class TfSaleSerialWizardAssignLine(models.TransientModel):
@@ -585,7 +606,7 @@ class TfSaleSerialWizardAssignLine(models.TransientModel):
     sequence = fields.Integer(default=10)
     container_plan_id = fields.Many2one(
         "tf.sale.serial.plan",
-        string="Container Serial",
+        string="Container Number",
         domain="[('order_id', '=', wizard_id.order_id), ('tf_is_container_product', '=', True)]",
     )
     case_qty = fields.Integer(string="# of Case", default=0)

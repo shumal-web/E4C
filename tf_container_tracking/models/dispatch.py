@@ -60,6 +60,7 @@ class TfDispatchTicket(models.Model):
             ("export_container_leg_2", "Container Export Leg 2"),
             ("export_container_leg_3", "Container Export Leg 3"),
             ("direct_container_client", "Direct Container to Client"),
+            ("import_dispatch", "Import Dispatch"),
             ("standalone", "Standalone"),
         ],
         default="pickup_parts",
@@ -67,6 +68,22 @@ class TfDispatchTicket(models.Model):
         tracking=True,
     )
     sale_order_id = fields.Many2one("sale.order", required=True, index=True, tracking=True)
+    sale_order_ids = fields.Many2many(
+        "sale.order",
+        "tf_dispatch_ticket_sale_order_rel",
+        "dispatch_ticket_id",
+        "sale_order_id",
+        string="Sales Orders",
+        help="Additional Sales Orders included on the same truck-out dispatch.",
+    )
+    customer_id = fields.Many2one(
+        "res.partner",
+        string="Customer",
+        related="sale_order_id.partner_id",
+        store=True,
+        readonly=True,
+    )
+    contact_id = fields.Many2one("res.partner", string="Contact", tracking=True)
     customer_reference = fields.Char(
         string="Customer Reference",
         related="sale_order_id.client_order_ref",
@@ -85,7 +102,7 @@ class TfDispatchTicket(models.Model):
         readonly=True,
     )
     location_partner_id = fields.Many2one("res.partner", string="Location", tracking=True)
-    location_note = fields.Char(string="Location Note", tracking=True)
+    location_note = fields.Char(string="Dispatch Address", tracking=True)
 
     truck_id = fields.Many2one("tf.dispatch.truck", tracking=True)
     driver_id = fields.Many2one("tf.dispatch.driver", tracking=True)
@@ -123,6 +140,53 @@ class TfDispatchTicket(models.Model):
         related="sale_order_id.tf_address_note",
         readonly=True,
     )
+    tf_origin = fields.Char(
+        string="Origin",
+        related="container_plan_id.tf_port_to_destuff",
+        store=True,
+        readonly=True,
+    )
+    tf_ssl = fields.Char(
+        string="SSL",
+        related="container_plan_id.tf_ssl",
+        store=True,
+        readonly=True,
+    )
+    tf_cutoff_date = fields.Date(
+        string="Cutoff",
+        related="container_plan_id.tf_cutoff_date",
+        store=True,
+        readonly=True,
+    )
+    tf_container_type = fields.Char(
+        string="Type",
+        related="container_plan_id.tf_container_type",
+        store=True,
+        readonly=True,
+    )
+    tf_pubk_no = fields.Char(
+        string="PU/BK #",
+        related="container_plan_id.tf_pubk_no",
+        store=True,
+        readonly=True,
+    )
+    tf_container_weight = fields.Float(
+        string="Weight",
+        related="container_plan_id.tf_weight",
+        store=True,
+        readonly=True,
+    )
+    tf_container_weight_unit = fields.Selection(
+        related="container_plan_id.tf_weight_unit",
+        store=True,
+        readonly=True,
+    )
+    tf_import_export = fields.Selection(
+        related="container_plan_id.tf_import_export",
+        store=True,
+        readonly=True,
+        string="Import/Export",
+    )
 
     whatsapp_message_preview = fields.Text(
         string="WhatsApp Message Preview",
@@ -145,50 +209,62 @@ class TfDispatchTicket(models.Model):
 
     @api.depends(
         "sale_order_id",
+        "sale_order_ids",
+        "customer_id",
+        "contact_id",
         "container_plan_id",
-        "location_partner_id",
-        "location_note",
-        "truck_id",
-        "driver_id",
-        "trailer_id",
         "dispatch_date",
         "trailer_destination_location",
         "customer_reference",
-        "tf_address_note",
+        "tf_origin",
+        "tf_ssl",
+        "tf_cutoff_date",
+        "tf_container_type",
+        "tf_pubk_no",
+        "tf_import_export",
     )
     def _compute_whatsapp_message_preview(self):
         for rec in self:
-            so = rec.sale_order_id.name or "-"
+            sales_orders = rec.sale_order_ids or rec.sale_order_id
+            so = ", ".join(sales_orders.mapped("name")) or "-"
+            customer = rec.customer_id.display_name or "-"
+            contact = rec.contact_id.display_name or "-"
             customer_ref = rec.customer_reference or "-"
             container = rec.container_number or "-"
-            location = rec.location_partner_id.display_name or rec.location_note or "-"
-            truck = rec.truck_id.name or "-"
-            driver = rec.driver_id.name or "-"
-            trailer = rec.trailer_id.name or "-"
             when = fields.Datetime.to_string(rec.dispatch_date) if rec.dispatch_date else "-"
-            trailer_destination = rec.trailer_destination_location or location
-            address = rec.tf_address_note or "-"
+            trailer_destination = rec.trailer_destination_location or rec.location_note or "-"
+            cutoff = fields.Date.to_string(rec.tf_cutoff_date) if rec.tf_cutoff_date else "-"
+            import_export_label = {
+                "import": _("Import"),
+                "export": _("Export"),
+            }.get(rec.tf_import_export, "-")
             rec.whatsapp_message_preview = _(
                 "Dispatch Instruction\n"
                 "SO: %(so)s\n"
+                "Customer: %(customer)s\n"
+                "Contact: %(contact)s\n"
                 "Customer Reference: %(customer_ref)s\n"
                 "Container: %(container)s\n"
-                "Location: %(location)s\n"
-                "Address: %(address)s\n"
-                "Truck: %(truck)s\n"
-                "Driver: %(driver)s\n"
-                "Trailer: %(trailer)s\n"
+                "Type: %(container_type)s\n"
+                "PU/BK #: %(pubk_no)s\n"
+                "SSL: %(ssl)s\n"
+                "Cutoff: %(cutoff)s\n"
+                "Origin: %(origin)s\n"
+                "Import/Export: %(import_export)s\n"
                 "Destination: %(trailer_destination)s\n"
                 "Date: %(when)s"
             ) % {
                 "so": so,
+                "customer": customer,
+                "contact": contact,
                 "customer_ref": customer_ref,
                 "container": container,
-                "location": location,
-                "address": address,
-                "truck": truck,
-                "driver": driver,
-                "trailer": trailer,
+                "container_type": rec.tf_container_type or "-",
+                "pubk_no": rec.tf_pubk_no or "-",
+                "ssl": rec.tf_ssl or "-",
+                "cutoff": cutoff,
+                "origin": rec.tf_origin or "-",
+                "import_export": import_export_label,
                 "trailer_destination": trailer_destination,
                 "when": when,
             }
@@ -198,6 +274,10 @@ class TfDispatchTicket(models.Model):
         for rec in self:
             if rec.sale_order_id and not rec.location_partner_id:
                 rec.location_partner_id = rec.sale_order_id.partner_shipping_id
+            if rec.sale_order_id and not rec.contact_id:
+                rec.contact_id = rec.sale_order_id.tf_dispatch_contact_id or rec.sale_order_id.partner_shipping_id or rec.sale_order_id.partner_id
+            if rec.sale_order_id and not rec.sale_order_ids:
+                rec.sale_order_ids = rec.sale_order_id
 
     @api.onchange("trailer_id")
     def _onchange_trailer_id(self):
@@ -213,6 +293,11 @@ class TfDispatchTicket(models.Model):
         for vals in vals_list:
             if vals.get("name", "New") == "New":
                 vals["name"] = sequence.next_by_code("tf.dispatch.ticket") or "New"
+            sale_order = self.env["sale.order"].browse(vals.get("sale_order_id")).exists()
+            if sale_order:
+                vals.setdefault("contact_id", (sale_order.tf_dispatch_contact_id or sale_order.partner_shipping_id or sale_order.partner_id).id)
+                if not vals.get("sale_order_ids"):
+                    vals["sale_order_ids"] = [(6, 0, sale_order.ids)]
         return super().create(vals_list)
 
     def action_send_whatsapp(self):
@@ -395,6 +480,40 @@ class TfSaleSerialPlan(models.Model):
             "target": "current",
         }
 
+    def action_tf_copy_container_numbers(self):
+        containers = self.filtered("tf_is_container_product")
+        numbers = [
+            value
+            for value in containers.mapped(lambda rec: rec.tf_container_number or rec.serial_name)
+            if value
+        ]
+        if not numbers:
+            raise UserError(_("No container numbers found on the selected records."))
+        return {
+            "type": "ir.actions.client",
+            "tag": "tf_container_tracking.copy_to_clipboard",
+            "params": {
+                "text": "\n".join(numbers),
+                "message": _("%s container number(s) copied.") % len(numbers),
+            },
+        }
+
+    def action_tf_open_bulk_update_wizard(self):
+        containers = self.filtered("tf_is_container_product")
+        if not containers:
+            raise UserError(_("Please select at least one container tracking record."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Bulk Update Containers"),
+            "res_model": "tf.container.bulk.update.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "active_model": "tf.sale.serial.plan",
+                "active_ids": containers.ids,
+            },
+        }
+
     def _tf_get_assignment_order_line(self):
         self.ensure_one()
         candidate_lines = self.order_id.order_line.filtered(
@@ -454,6 +573,7 @@ class TfSaleSerialPlan(models.Model):
             "default_location_note": location_note,
             "default_dispatch_date": dispatch_date,
             "default_trailer_destination_location": location_note,
+            "default_contact_id": (self.order_id.tf_dispatch_contact_id or self.order_id.partner_shipping_id or self.order_id.partner_id).id,
         }
 
     def _prepare_dispatch_create_vals(self, dispatch_type):
@@ -466,6 +586,8 @@ class TfSaleSerialPlan(models.Model):
             "location_note": defaults["default_location_note"],
             "dispatch_date": defaults["default_dispatch_date"],
             "trailer_destination_location": defaults["default_trailer_destination_location"],
+            "contact_id": defaults.get("default_contact_id"),
+            "sale_order_ids": [(6, 0, [defaults["default_sale_order_id"]])],
         }
 
     def _get_existing_dispatch_ticket(self, dispatch_type, active_only=True):

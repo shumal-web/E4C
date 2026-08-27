@@ -41,7 +41,7 @@
                 <field name="plan_id" column_invisible="1"/>
                 <field name="order_id" column_invisible="1"/>
                 <field name="tf_container_plan_id"
-                       string="Container Serial"
+                       string="Container Number"
                        domain="[('order_id', '=', parent.order_id), ('tf_is_container_product', '=', True)]"
                        can_create="0"
                        can_write="0"
@@ -93,10 +93,13 @@
                         <field name="tf_container_location"/>
                         <field name="tf_eta"/>
                         <field name="tf_lfd"/>
+                        <field name="tf_cutoff_date"/>
                         <field name="tf_ssl"/>
                         <field name="tf_container_type"/>
-                        <field name="tf_chassis_no"/>
                         <field name="tf_pubk_no"/>
+                        <field name="tf_weight"/>
+                        <field name="tf_weight_unit"/>
+                        <field name="tf_import_export"/>
                     </list>
                 </field>
 

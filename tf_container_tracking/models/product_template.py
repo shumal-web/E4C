@@ -18,6 +18,10 @@ class ProductTemplate(models.Model):
         string="Direct Container to Client",
         help="Use this on service/flow products that should move the container directly to the client without a warehouse stop.",
     )
+    tf_container_type = fields.Char(
+        string="Container Type",
+        help="Default type copied to container attribute lines created from this product.",
+    )
 
     @api.model
     def default_get(self, fields_list):

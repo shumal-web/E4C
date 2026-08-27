@@ -17,9 +17,47 @@
             <xpath expr="//sheet//group" position="inside">
                 <group string="Container Link">
                     <field name="tf_is_container_lot" invisible="1"/>
+                    <field name="tf_customer_id" readonly="1"/>
                     <field name="tf_origin_sale_order_id" readonly="1"/>
                     <field name="tf_container_lot_id" invisible="tf_is_container_lot"/>
+                    <field name="tf_port_to_destuff"/>
+                    <field name="tf_container_status"/>
+                    <field name="tf_eta"/>
+                    <field name="tf_lfd"/>
+                    <field name="tf_cutoff_date"/>
+                    <field name="tf_ssl"/>
+                    <field name="tf_container_type"/>
+                    <field name="tf_pubk_no"/>
+                    <field name="tf_import_export"/>
                 </group>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_production_lot_tree_tf_customer" model="ir.ui.view">
+        <field name="name">stock.production.lot.list.tf.customer</field>
+        <field name="model">stock.lot</field>
+        <field name="inherit_id" ref="stock.view_production_lot_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='product_id']" position="after">
+                <field name="tf_customer_id" optional="show"/>
+                <field name="tf_origin_sale_order_id" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="search_product_lot_filter_tf_customer" model="ir.ui.view">
+        <field name="name">stock.lot.search.tf.customer</field>
+        <field name="model">stock.lot</field>
+        <field name="inherit_id" ref="stock.search_product_lot_filter"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='product_id']" position="after">
+                <field name="tf_customer_id"/>
+                <field name="tf_origin_sale_order_id"/>
+            </xpath>
+            <xpath expr="//group" position="inside">
+                <filter name="group_tf_customer" string="Customer" context="{'group_by': 'tf_customer_id'}"/>
+                <filter name="group_tf_source_so" string="Source Sales Order" context="{'group_by': 'tf_origin_sale_order_id'}"/>
             </xpath>
         </field>
     </record>
