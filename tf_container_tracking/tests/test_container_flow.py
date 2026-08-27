@@ -97,6 +97,7 @@ class TestContainerFlow(TransactionCase):
         self.assertIn("tf_partner_credit_limit", sale_model._fields)
         self.assertIn("tf_shipment_type", self.env["sale.order.template"]._fields)
         self.assertIn("tf_direct_container_to_client", self.env["product.template"]._fields)
+        self.assertIn("tf_container_type", self.env["product.template"]._fields)
         self.assertIn("tf_credit_limit", self.env["res.partner"]._fields)
         self.assertIn("tf_credit_used", self.env["res.partner"]._fields)
 
@@ -138,6 +139,9 @@ class TestContainerFlow(TransactionCase):
         )
         self.assertIn("tf_flow_state", quotation_tree["arch"])
         self.assertIn("tf_shipment_type", quotation_tree["arch"])
+        quotation_tree_arch = etree.fromstring(quotation_tree["arch"].encode())
+        for button in quotation_tree_arch.xpath("//header/button"):
+            self.assertNotIn("tf_flow_state", button.get("invisible") or "")
 
         order_tree = sale_model.get_view(
             view_id=self.env.ref("sale.view_order_tree").id,
@@ -145,6 +149,9 @@ class TestContainerFlow(TransactionCase):
         )
         self.assertIn("tf_flow_state", order_tree["arch"])
         self.assertIn("tf_shipment_type", order_tree["arch"])
+        order_tree_arch = etree.fromstring(order_tree["arch"].encode())
+        for button in order_tree_arch.xpath("//header/button"):
+            self.assertNotIn("tf_flow_state", button.get("invisible") or "")
 
         search_view = sale_model.get_view(
             view_id=self.env.ref("sale.view_sales_order_filter").id,
@@ -173,6 +180,12 @@ class TestContainerFlow(TransactionCase):
             view_type="form",
         )
         self.assertIn("tf_shipment_type", template_view["arch"])
+
+        product_view = self.env["product.template"].get_view(
+            view_id=self.env.ref("product.product_template_form_view").id,
+            view_type="form",
+        )
+        self.assertIn("tf_container_type", product_view["arch"])
 
         picking_model = self.env["stock.picking"]
         self.assertIn("tf_customer_reference", picking_model._fields)
