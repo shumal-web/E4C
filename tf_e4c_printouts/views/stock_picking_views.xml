@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_picking_form_e4c_printouts" model="ir.ui.view">
+        <field name="name">stock.picking.form.e4c.printouts</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="tf_container_tracking.view_picking_form_tf_sale_order_link"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_e4c_print_receiving_labels"
+                        type="object"
+                        string="Print Label"
+                        class="btn-secondary"/>
+                <button name="action_e4c_print_truck_in_sheet"
+                        type="object"
+                        string="Truck In Sheet"
+                        class="btn-secondary"/>
+                <button name="action_e4c_print_truck_out_sheet"
+                        type="object"
+                        string="Truck Out Sheet"
+                        class="btn-secondary"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

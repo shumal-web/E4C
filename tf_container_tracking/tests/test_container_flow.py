@@ -95,7 +95,10 @@ class TestContainerFlow(TransactionCase):
         self.assertIn("tf_special_instructions", sale_model._fields)
         self.assertIn("tf_credit_state", sale_model._fields)
         self.assertIn("tf_partner_credit_limit", sale_model._fields)
-        self.assertIn("tf_shipment_type", self.env["sale.order.template"]._fields)
+        template_model = self.env["sale.order.template"]
+        self.assertIn("tf_shipment_type", template_model._fields)
+        self.assertIn("tf_address_note", template_model._fields)
+        self.assertIn("tf_special_instructions", template_model._fields)
         self.assertIn("tf_direct_container_to_client", self.env["product.template"]._fields)
         self.assertIn("tf_container_type", self.env["product.template"]._fields)
         self.assertIn("tf_credit_limit", self.env["res.partner"]._fields)
@@ -180,6 +183,8 @@ class TestContainerFlow(TransactionCase):
             view_type="form",
         )
         self.assertIn("tf_shipment_type", template_view["arch"])
+        self.assertIn("tf_address_note", template_view["arch"])
+        self.assertIn("tf_special_instructions", template_view["arch"])
 
         product_view = self.env["product.template"].get_view(
             view_id=self.env.ref("product.product_template_form_view").id,
@@ -197,6 +202,19 @@ class TestContainerFlow(TransactionCase):
         self.assertIn("tf_customer_reference", picking_view["arch"])
         self.assertIn("tf_address_note", picking_view["arch"])
         self.assertIn('open_attachments="True"', picking_view["arch"])
+
+    def test_unwanted_stock_operation_menus_are_hidden(self):
+        hidden_menu_xmlids = [
+            "stock.menu_action_inventory_tree",
+            "stock.menu_stock_scrap",
+            "stock.menu_reordering_rules_replenish",
+            "stock.menu_procurement_compute",
+        ]
+        no_one_group = self.env.ref("base.group_no_one")
+        for xmlid in hidden_menu_xmlids:
+            menu = self.env.ref(xmlid).with_context(active_test=False)
+            self.assertFalse(menu.active, "%s should be inactive" % xmlid)
+            self.assertEqual(menu.group_ids, no_one_group)
 
     def test_dispatch_container_field_uses_container_number_label(self):
         dispatch_model = self.env["tf.dispatch.ticket"]
@@ -390,11 +408,13 @@ class TestContainerFlow(TransactionCase):
         self.assertFalse(direct_flow_product.tf_is_container)
         self.assertFalse(direct_flow_product.tf_requires_container)
 
-    def test_quotation_template_sets_sales_order_flow_type(self):
+    def test_quotation_template_sets_sales_order_defaults(self):
         partner = self._create_partner("Template Flow Partner")
         template = self.env["sale.order.template"].create({
             "name": "Export Template",
             "tf_shipment_type": "export",
+            "tf_address_note": "Template dock address",
+            "tf_special_instructions": "Template special request",
         })
 
         sale_order = self.env["sale.order"].create({
@@ -402,6 +422,19 @@ class TestContainerFlow(TransactionCase):
             "sale_order_template_id": template.id,
         })
         self.assertEqual(sale_order.tf_shipment_type, "export")
+        self.assertEqual(sale_order.tf_address_note, "Template dock address")
+        self.assertEqual(sale_order.tf_special_instructions, "Template special request")
+
+        other_template = self.env["sale.order.template"].create({
+            "name": "Import Template",
+            "tf_shipment_type": "import",
+            "tf_address_note": "Second template address",
+            "tf_special_instructions": "Second template request",
+        })
+        sale_order.write({"sale_order_template_id": other_template.id})
+        self.assertEqual(sale_order.tf_shipment_type, "import")
+        self.assertEqual(sale_order.tf_address_note, "Second template address")
+        self.assertEqual(sale_order.tf_special_instructions, "Second template request")
 
         onchange_order = self.env["sale.order"].new({
             "partner_id": partner.id,
@@ -409,6 +442,8 @@ class TestContainerFlow(TransactionCase):
         })
         onchange_order._onchange_sale_order_template_id()
         self.assertEqual(onchange_order.tf_shipment_type, "export")
+        self.assertEqual(onchange_order.tf_address_note, "Template dock address")
+        self.assertEqual(onchange_order.tf_special_instructions, "Template special request")
 
     def test_sales_order_confirm_moves_flow_to_for_approval(self):
         partner = self._create_partner("Confirm Flow Partner")

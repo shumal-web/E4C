@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="paperformat_e4c_a4" model="report.paperformat">
+        <field name="name">E4C A4 Printout</field>
+        <field name="default" eval="False"/>
+        <field name="format">A4</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">10</field>
+        <field name="margin_bottom">10</field>
+        <field name="margin_left">8</field>
+        <field name="margin_right">8</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">0</field>
+        <field name="dpi">90</field>
+    </record>
+
+    <record id="paperformat_e4c_letter" model="report.paperformat">
+        <field name="name">E4C Letter Printout</field>
+        <field name="default" eval="False"/>
+        <field name="format">Letter</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">10</field>
+        <field name="margin_bottom">10</field>
+        <field name="margin_left">8</field>
+        <field name="margin_right">8</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">0</field>
+        <field name="dpi">90</field>
+    </record>
+
+    <record id="paperformat_e4c_label_4x6" model="report.paperformat">
+        <field name="name">E4C 4x6 Label</field>
+        <field name="default" eval="False"/>
+        <field name="format">custom</field>
+        <field name="page_width">102</field>
+        <field name="page_height">152</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">3</field>
+        <field name="margin_bottom">3</field>
+        <field name="margin_left">3</field>
+        <field name="margin_right">3</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">0</field>
+        <field name="dpi">90</field>
+    </record>
+
+    <record id="action_report_e4c_receiving_labels" model="ir.actions.report">
+        <field name="name">E4C Receiving Labels</field>
+        <field name="model">stock.picking</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">tf_e4c_printouts.report_e4c_receiving_labels</field>
+        <field name="report_file">tf_e4c_printouts.report_e4c_receiving_labels</field>
+        <field name="print_report_name">'Receiving Labels - %s' % (object.name)</field>
+        <field name="binding_model_id" ref="stock.model_stock_picking"/>
+        <field name="binding_type">report</field>
+        <field name="paperformat_id" ref="tf_e4c_printouts.paperformat_e4c_label_4x6"/>
+    </record>
+
+    <record id="action_report_e4c_truck_in_sheet" model="ir.actions.report">
+        <field name="name">E4C Truck In Sheet</field>
+        <field name="model">stock.picking</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">tf_e4c_printouts.report_e4c_truck_in_sheet</field>
+        <field name="report_file">tf_e4c_printouts.report_e4c_truck_in_sheet</field>
+        <field name="print_report_name">'Truck In - %s' % (object.name)</field>
+        <field name="binding_model_id" ref="stock.model_stock_picking"/>
+        <field name="binding_type">report</field>
+        <field name="paperformat_id" ref="tf_e4c_printouts.paperformat_e4c_a4"/>
+    </record>
+
+    <record id="action_report_e4c_truck_out_sheet_picking" model="ir.actions.report">
+        <field name="name">E4C Truck Out Sheet</field>
+        <field name="model">stock.picking</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">tf_e4c_printouts.report_e4c_truck_out_sheet_picking</field>
+        <field name="report_file">tf_e4c_printouts.report_e4c_truck_out_sheet_picking</field>
+        <field name="print_report_name">'Truck Out - %s' % (object.name)</field>
+        <field name="binding_model_id" ref="stock.model_stock_picking"/>
+        <field name="binding_type">report</field>
+        <field name="paperformat_id" ref="tf_e4c_printouts.paperformat_e4c_a4"/>
+    </record>
+
+    <record id="action_report_e4c_dispatch_bol" model="ir.actions.report">
+        <field name="name">E4C Bill of Lading</field>
+        <field name="model">tf.dispatch.ticket</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">tf_e4c_printouts.report_e4c_dispatch_bol</field>
+        <field name="report_file">tf_e4c_printouts.report_e4c_dispatch_bol</field>
+        <field name="print_report_name">'BOL - %s' % (object.name)</field>
+        <field name="binding_model_id" ref="tf_container_tracking.model_tf_dispatch_ticket"/>
+        <field name="binding_type">report</field>
+        <field name="paperformat_id" ref="tf_e4c_printouts.paperformat_e4c_letter"/>
+    </record>
+
+    <record id="action_report_e4c_dispatch_truck_out_sheet" model="ir.actions.report">
+        <field name="name">E4C Dispatch Truck Out Sheet</field>
+        <field name="model">tf.dispatch.ticket</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">tf_e4c_printouts.report_e4c_dispatch_truck_out_sheet</field>
+        <field name="report_file">tf_e4c_printouts.report_e4c_dispatch_truck_out_sheet</field>
+        <field name="print_report_name">'Dispatch Truck Out - %s' % (object.name)</field>
+        <field name="binding_model_id" ref="tf_container_tracking.model_tf_dispatch_ticket"/>
+        <field name="binding_type">report</field>
+        <field name="paperformat_id" ref="tf_e4c_printouts.paperformat_e4c_a4"/>
+    </record>
+
+    <record id="action_report_e4c_export_checklist" model="ir.actions.report">
+        <field name="name">E4C Export Checklist</field>
+        <field name="model">tf.dispatch.ticket</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">tf_e4c_printouts.report_e4c_export_checklist</field>
+        <field name="report_file">tf_e4c_printouts.report_e4c_export_checklist</field>
+        <field name="print_report_name">'Export Checklist - %s' % (object.name)</field>
+        <field name="binding_model_id" ref="tf_container_tracking.model_tf_dispatch_ticket"/>
+        <field name="binding_type">report</field>
+        <field name="paperformat_id" ref="tf_e4c_printouts.paperformat_e4c_a4"/>
+    </record>
+</odoo>

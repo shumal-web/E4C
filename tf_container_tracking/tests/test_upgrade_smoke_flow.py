@@ -249,7 +249,11 @@ class TestUpgradeSmokeFlow(TransactionCase):
                 "tf_special_instructions",
                 "tf_credit_state",
             ],
-            "sale.order.template": ["tf_shipment_type"],
+            "sale.order.template": [
+                "tf_shipment_type",
+                "tf_address_note",
+                "tf_special_instructions",
+            ],
             "product.template": [
                 "tf_container_type",
                 "tf_direct_container_to_client",

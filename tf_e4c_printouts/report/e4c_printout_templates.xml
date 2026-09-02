@@ -1,0 +1,705 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="report_e4c_common_styles">
+        <style>
+            .e4c-doc {
+                font-family: Arial, sans-serif;
+                color: #000;
+                font-size: 12px;
+            }
+            .e4c-form-header {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 0 0 34px 0;
+            }
+            .e4c-form-header td {
+                border: 0;
+                vertical-align: top;
+                padding: 0;
+            }
+            .e4c-logo-cell {
+                width: 25%;
+                text-align: left;
+            }
+            .e4c-logo {
+                width: 60px;
+                height: auto;
+            }
+            .e4c-title-cell {
+                width: 50%;
+                text-align: center;
+                font-weight: 700;
+            }
+            .e4c-main-title {
+                font-size: 18px;
+                line-height: 1.2;
+                margin: 0 0 10px 0;
+            }
+            .e4c-subtitle {
+                font-size: 18px;
+                line-height: 1.2;
+                margin: 0;
+                text-transform: none;
+            }
+            .e4c-address-cell {
+                width: 25%;
+                text-align: right;
+                font-size: 12px;
+                line-height: 1.5;
+                font-weight: 700;
+            }
+            .e4c-top-layout {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 18px;
+                margin-bottom: 38px;
+            }
+            .e4c-top-layout td {
+                border: 0;
+                padding: 0;
+                vertical-align: top;
+            }
+            .e4c-top-left {
+                width: 35%;
+            }
+            .e4c-top-gap {
+                width: 16%;
+            }
+            .e4c-top-right {
+                width: 49%;
+            }
+            .e4c-top-table,
+            .e4c-line-table,
+            .e4c-inventory-grid,
+            .e4c-bol-table {
+                width: 100%;
+                border-collapse: collapse;
+                table-layout: fixed;
+            }
+            .e4c-top-table td {
+                border: 1px solid #000;
+                padding: 7px 8px;
+                height: 26px;
+                vertical-align: middle;
+                font-size: 14px;
+            }
+            .e4c-top-table .e4c-warehouse-cell {
+                height: 54px;
+                text-align: center;
+            }
+            .e4c-line-table th,
+            .e4c-line-table td {
+                border: 1px solid #000;
+                padding: 5px 5px;
+                vertical-align: middle;
+                font-size: 12px;
+            }
+            .e4c-line-table th {
+                font-weight: 700;
+                text-align: left;
+                background: #fff;
+            }
+            .e4c-line-table td:first-child,
+            .e4c-line-table th:first-child {
+                text-align: center;
+                font-weight: 700;
+            }
+            .e4c-comments-title {
+                text-align: center;
+                font-weight: 700;
+                padding: 3px 5px !important;
+            }
+            .e4c-comments-box {
+                height: 72px;
+                vertical-align: top !important;
+                white-space: pre-line;
+                text-align: left !important;
+                font-weight: 400 !important;
+            }
+            .e4c-signature-row {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 34px;
+            }
+            .e4c-signature-row td {
+                border: 0;
+                padding: 0;
+                vertical-align: top;
+                font-size: 12px;
+            }
+            .e4c-signature-line {
+                border-top: 2px solid #000;
+                height: 7px;
+                width: 255px;
+                margin-bottom: 3px;
+            }
+            .e4c-small {
+                font-size: 10px;
+            }
+            .e4c-inventory-grid {
+                margin-top: 24px;
+                font-size: 12px;
+            }
+            .e4c-inventory-grid th,
+            .e4c-inventory-grid td {
+                border: 1px solid #000;
+                padding: 7px 5px;
+                vertical-align: middle;
+                text-align: left;
+                height: 28px;
+            }
+            .e4c-inventory-title {
+                text-align: center !important;
+                font-size: 14px;
+                font-weight: 700;
+            }
+            .e4c-inventory-note {
+                text-align: center !important;
+                font-size: 13px;
+                letter-spacing: 1px;
+                font-weight: 700;
+            }
+            .e4c-bol {
+                font-family: Arial, sans-serif;
+                color: #000;
+                font-size: 10px;
+                border: 1px solid #000;
+                min-height: 945px;
+            }
+            .e4c-bol-title {
+                text-align: center;
+                font-size: 18px;
+                font-weight: 700;
+                padding: 6px 4px;
+                border-bottom: 1px solid #000;
+            }
+            .e4c-bol-table th,
+            .e4c-bol-table td {
+                border: 1px solid #000;
+                padding: 4px 6px;
+                vertical-align: top;
+            }
+            .e4c-bol-table th {
+                text-align: left;
+                font-weight: 700;
+            }
+            .e4c-bol-top td {
+                height: 76px;
+                font-size: 12px;
+            }
+            .e4c-bol-party td {
+                height: 44px;
+                font-size: 11px;
+            }
+            .e4c-bol-lines th {
+                background: #4d4d4d;
+                color: #fff;
+                text-align: center;
+                font-size: 11px;
+                padding: 7px 5px;
+            }
+            .e4c-bol-lines td {
+                height: 18px;
+                font-size: 10px;
+            }
+            .e4c-bol-note {
+                font-size: 7px;
+                line-height: 1.2;
+                padding: 4px 6px;
+                border-top: 1px solid #000;
+            }
+            .e4c-bol-red {
+                color: #d00;
+                font-size: 12px;
+                font-weight: 700;
+                border-top: 1px solid #000;
+                padding: 6px;
+            }
+            .e4c-bol-signature-table {
+                width: 100%;
+                border-collapse: collapse;
+                table-layout: fixed;
+            }
+            .e4c-bol-signature-table td {
+                border: 1px solid #000;
+                padding: 5px 8px;
+                height: 22px;
+                font-size: 13px;
+            }
+            .e4c-bol-footer {
+                text-align: center;
+                color: #d00;
+                font-size: 18px;
+                font-weight: 700;
+                margin-top: 8px;
+            }
+            .e4c-terms {
+                white-space: pre-line;
+                font-size: 8px;
+                line-height: 1.25;
+                columns: 3;
+                column-gap: 14px;
+            }
+            .e4c-label-page {
+                font-family: Arial, sans-serif;
+                color: #111;
+                padding: 5mm;
+                height: 141mm;
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+            }
+            .e4c-label-main {
+                font-size: 28px;
+                font-weight: 700;
+                text-align: center;
+                margin-bottom: 7mm;
+            }
+            .e4c-label-row {
+                font-size: 17px;
+                margin: 3mm 0;
+                line-height: 1.25;
+            }
+            .e4c-label-key {
+                font-weight: 700;
+            }
+            .e4c-label-piece {
+                font-size: 25px;
+                font-weight: 700;
+                text-align: center;
+                margin-top: 8mm;
+                letter-spacing: 1px;
+            }
+        </style>
+    </template>
+
+    <template id="report_e4c_form_header">
+        <table class="e4c-form-header">
+            <tr>
+                <td class="e4c-logo-cell">
+                    <img class="e4c-logo" src="data:image/png;base64,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"/>
+                </td>
+                <td class="e4c-title-cell">
+                    <div class="e4c-main-title">Job Information Sheet</div>
+                    <div class="e4c-subtitle"><span t-out="subtitle"/></div>
+                </td>
+                <td class="e4c-address-cell">
+                    795 George V Avenue,<br/>
+                    Lachine, QC, H8S 2R9
+                </td>
+            </tr>
+        </table>
+    </template>
+
+    <template id="report_e4c_piece_table">
+        <t t-set="lines" t-value="doc._e4c_report_line_values()"/>
+        <table class="e4c-line-table">
+            <thead>
+                <tr>
+                    <th style="width: 6%;">#of<br/>Pieces</th>
+                    <th style="width: 18%;">Description of Pieces</th>
+                    <th style="width: 21%;">Dimension(L x W x H)</th>
+                    <th style="width: 14%;">Weight</th>
+                    <th style="width: 8%;">Location</th>
+                    <th style="width: 6%;">#of<br/>Pieces</th>
+                    <th style="width: 8%;">Pictures</th>
+                    <th style="width: 12%;">Condition of<br/>the Pieces</th>
+                    <th style="width: 7%;">Initials</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr t-foreach="lines" t-as="line">
+                    <td><span t-out="line.get('quantity')"/></td>
+                    <td><span t-out="line.get('description')"/></td>
+                    <td><span t-out="line.get('dimensions')"/></td>
+                    <td><span t-out="line.get('weight')"/></td>
+                    <td><span t-out="line.get('location')"/></td>
+                    <td></td>
+                    <td><span t-out="line.get('pictures')"/></td>
+                    <td><span t-out="line.get('condition')"/></td>
+                    <td></td>
+                </tr>
+                <tr t-if="not lines">
+                    <td colspan="9" style="height: 30px; text-align:left; font-weight:400;">No lines found.</td>
+                </tr>
+                <tr>
+                    <td colspan="9" class="e4c-comments-title">Comments</td>
+                </tr>
+                <tr>
+                    <td colspan="9" class="e4c-comments-box">Please confirm dimensions, piece counts and identifying marks.<t t-if="doc._e4c_report_special_instructions()"><br/>Special Instructions: <span t-out="doc._e4c_report_special_instructions()"/></t><t t-if="doc._e4c_report_tags()"><br/>Tags: <span t-out="doc._e4c_report_tags()"/></t></td>
+                </tr>
+            </tbody>
+        </table>
+    </template>
+
+    <template id="report_e4c_signature_lines">
+        <table class="e4c-signature-row">
+            <tr>
+                <td style="width: 50%;">
+                    <div class="e4c-signature-line"></div>
+                    Pictures and Report sent to Office
+                </td>
+                <td style="width: 50%;">
+                    <div class="e4c-signature-line"></div>
+                    Employee Signature
+                </td>
+            </tr>
+        </table>
+    </template>
+
+    <template id="report_e4c_truck_sheet_body">
+        <div class="page e4c-doc">
+            <t t-call="tf_e4c_printouts.report_e4c_common_styles"/>
+            <t t-set="subtitle" t-value="'Truck Sheet'"/>
+            <t t-call="tf_e4c_printouts.report_e4c_form_header"/>
+
+            <table class="e4c-top-layout">
+                <tr>
+                    <td class="e4c-top-left">
+                        <table class="e4c-top-table">
+                            <tr>
+                                <td class="e4c-warehouse-cell" style="width:45%;">Warehouse</td>
+                                <td class="e4c-warehouse-cell">795</td>
+                            </tr>
+                            <tr>
+                                <td>E4C File:</td>
+                                <td><span t-out="doc.name"/></td>
+                            </tr>
+                            <tr>
+                                <td>Date:</td>
+                                <td><span t-out="doc._e4c_report_date()"/></td>
+                            </tr>
+                            <tr>
+                                <td>Carrier:</td>
+                                <td><span t-out="doc._e4c_report_carrier()"/></td>
+                            </tr>
+                            <tr>
+                                <td>Customer:</td>
+                                <td><span t-out="doc._e4c_report_customer_name()"/></td>
+                            </tr>
+                            <tr>
+                                <td>Customer PO:</td>
+                                <td><span t-out="doc._e4c_report_customer_reference()"/></td>
+                            </tr>
+                        </table>
+                    </td>
+                    <td class="e4c-top-gap"></td>
+                    <td class="e4c-top-right">
+                        <table class="e4c-top-table">
+                            <tr>
+                                <td style="width:58%;">Job done by:</td>
+                                <td><span t-out="doc._e4c_report_driver()"/></td>
+                            </tr>
+                            <tr>
+                                <td>IN/OUT:</td>
+                                <td><span t-out="sheet_direction"/></td>
+                            </tr>
+                            <tr>
+                                <td>Warehouse Location:</td>
+                                <td><span t-out="doc._e4c_report_destination_location() if sheet_direction == 'Out' else doc._e4c_report_source_location()"/></td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+
+            <t t-call="tf_e4c_printouts.report_e4c_piece_table"/>
+            <t t-call="tf_e4c_printouts.report_e4c_signature_lines"/>
+        </div>
+    </template>
+
+    <template id="report_e4c_truck_in_sheet">
+        <t t-call="web.basic_layout">
+            <t t-foreach="docs" t-as="doc">
+                <t t-set="sheet_direction" t-value="'In'"/>
+                <t t-call="tf_e4c_printouts.report_e4c_truck_sheet_body"/>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_e4c_truck_out_sheet_picking">
+        <t t-call="web.basic_layout">
+            <t t-foreach="docs" t-as="doc">
+                <t t-set="sheet_direction" t-value="'Out'"/>
+                <t t-call="tf_e4c_printouts.report_e4c_truck_sheet_body"/>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_e4c_dispatch_truck_out_sheet">
+        <t t-call="web.basic_layout">
+            <t t-foreach="docs" t-as="doc">
+                <t t-set="sheet_direction" t-value="'Out'"/>
+                <t t-call="tf_e4c_printouts.report_e4c_truck_sheet_body"/>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_e4c_export_inventory_grid">
+        <table class="e4c-inventory-grid">
+            <tr>
+                <th colspan="12" class="e4c-inventory-title">Load, Block, Brace - Inventory Used</th>
+            </tr>
+            <tr>
+                <th colspan="12" class="e4c-inventory-note">PLEASE INDICATE THE MATERIALS USED FOR BLOCKING AND BRACING OR TIE-DOWN</th>
+            </tr>
+            <tr>
+                <th colspan="2">BOIS</th>
+                <th>NBR DE<br/>PIECES</th>
+                <th>#<br/>BATCH</th>
+                <th colspan="2">STRAPS</th>
+                <th>NBR DE<br/>PIECES</th>
+                <th>CORDSTRA</th>
+                <th>NBR DE<br/>SACS /<br/>BUCKLES</th>
+                <th colspan="2">VIS</th>
+                <th>NBR DE<br/>PIECES</th>
+            </tr>
+            <tr>
+                <th>TYPE</th>
+                <th>LONGUEUR</th>
+                <th></th>
+                <th></th>
+                <th>TYPE</th>
+                <th>LONGUEUR</th>
+                <th></th>
+                <th>COULEUR</th>
+                <th></th>
+                <th>TYPE</th>
+                <th>LONGUEUR</th>
+                <th></th>
+            </tr>
+            <tr>
+                <td>2&quot; X 4&quot;</td><td></td><td></td><td></td><td>2&quot;</td><td></td><td></td><td>BLANC</td><td></td><td>GOLD</td><td></td><td></td>
+            </tr>
+            <tr>
+                <td>2&quot; X 4&quot;</td><td></td><td></td><td></td><td>2&quot;</td><td></td><td></td><td>BUCKLES</td><td></td><td>BLACK</td><td></td><td></td>
+            </tr>
+            <tr>
+                <td>2&quot; X 6&quot;</td><td></td><td></td><td></td><td>3&quot;</td><td></td><td></td><td>ORANGE</td><td></td><td></td><td></td><td></td>
+            </tr>
+            <tr>
+                <td>2&quot; X 6&quot;</td><td></td><td></td><td></td><td>3&quot;</td><td></td><td></td><td>BUCKLES</td><td></td><td></td><td></td><td></td>
+            </tr>
+            <tr>
+                <td>4&quot; X 4&quot;</td><td></td><td></td><td></td><td>4&quot;</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+            </tr>
+            <tr>
+                <td>4&quot; X 4&quot;</td><td></td><td></td><td></td><td>4&quot;</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+            </tr>
+            <tr>
+                <td style="font-weight:700;">TOTAL:</td>
+                <td colspan="11"></td>
+            </tr>
+        </table>
+    </template>
+
+    <template id="report_e4c_export_checklist">
+        <t t-call="web.basic_layout">
+            <t t-foreach="docs" t-as="doc">
+                <div class="page e4c-doc">
+                    <t t-call="tf_e4c_printouts.report_e4c_common_styles"/>
+                    <t t-set="subtitle" t-value="'EXPORT CHECKLIST'"/>
+                    <t t-call="tf_e4c_printouts.report_e4c_form_header"/>
+
+                    <table class="e4c-top-layout">
+                        <tr>
+                            <td class="e4c-top-left">
+                                <table class="e4c-top-table">
+                                    <tr>
+                                        <td class="e4c-warehouse-cell" style="width:45%;">Warehouse</td>
+                                        <td class="e4c-warehouse-cell">795</td>
+                                    </tr>
+                                    <tr>
+                                        <td>E4C File:</td>
+                                        <td><span t-out="doc.name"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Customer:</td>
+                                        <td><span t-out="doc._e4c_report_customer_name()"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Customer PO:</td>
+                                        <td><span t-out="doc._e4c_report_customer_reference()"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Booking<br/>Number:</td>
+                                        <td><span t-out="doc.tf_pubk_no"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Booking Date<br/>Cut-Off:</td>
+                                        <td><span t-out="doc.tf_cutoff_date"/></td>
+                                    </tr>
+                                </table>
+                            </td>
+                            <td class="e4c-top-gap"></td>
+                            <td class="e4c-top-right">
+                                <table class="e4c-top-table">
+                                    <tr>
+                                        <td style="width:50%;">Carrier:</td>
+                                        <td><span t-out="doc._e4c_report_carrier()"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Container Loaded by:</td>
+                                        <td><span t-out="doc._e4c_report_driver()"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Container Type:</td>
+                                        <td><span t-out="doc.tf_container_type"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Tare Weight:</td>
+                                        <td><span t-out="doc.tf_container_weight"/> <span t-out="doc.tf_container_weight_unit"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Seal #:</td>
+                                        <td></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Container #:</td>
+                                        <td><span t-out="doc._e4c_report_container_number()"/></td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+
+                    <t t-call="tf_e4c_printouts.report_e4c_piece_table"/>
+                    <t t-call="tf_e4c_printouts.report_e4c_export_inventory_grid"/>
+                    <t t-call="tf_e4c_printouts.report_e4c_signature_lines"/>
+                </div>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_e4c_dispatch_bol">
+        <t t-call="web.basic_layout">
+            <t t-foreach="docs" t-as="doc">
+                <div class="page e4c-doc">
+                    <t t-call="tf_e4c_printouts.report_e4c_common_styles"/>
+                    <div class="e4c-bol">
+                        <div class="e4c-bol-title">STRAIGHT BILL OF LADING - ORIGINAL - NOT NEGOTIABLE</div>
+                        <table class="e4c-bol-table e4c-bol-top">
+                            <tr>
+                                <td style="width:32%;">
+                                    Carrier<br/>
+                                    <span style="font-size:18px;">E4C</span><br/>
+                                    <span style="font-size:18px;">795 GEORGE V</span><br/>
+                                    <span style="font-size:18px;">LACHINE,QC H8S 3K3</span>
+                                </td>
+                                <td style="width:34%; text-align:center; font-size:18px; padding-top:32px;">NIR: R136240-0</td>
+                                <td style="width:34%;">
+                                    <div style="font-size:13px;">Shipper's No. <span style="border-bottom:1px solid #000; display:inline-block; width:150px;"><span t-out="doc.name"/></span></div>
+                                    <div style="margin-top:46px; text-align:center; font-size:13px;">Date <span t-out="doc._e4c_report_date()"/></div>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <table class="e4c-bol-table e4c-bol-party">
+                            <tr>
+                                <td style="width:50%;"><strong>FROM:</strong><br/>Shipper<br/><span style="font-size:16px;">E4C</span></td>
+                                <td style="width:50%;"><strong>TO:</strong><br/>Consignee<br/><span style="font-size:16px;" t-out="doc._e4c_report_customer_name()"/></td>
+                            </tr>
+                            <tr>
+                                <td>Street<br/><span style="font-size:15px;">795 GEORGE V</span></td>
+                                <td>Street<br/><span class="e4c-field-space" style="font-size:15px; white-space:pre-line;" t-out="doc._e4c_report_customer_address()"/></td>
+                            </tr>
+                            <tr>
+                                <td>Origin <span style="margin-left:52px; font-size:15px;">LACHINE,QC</span> <span style="margin-left:110px;">Postal Code</span> <span style="font-size:15px;">H8S 3K3</span></td>
+                                <td>Destination <span style="margin-left:35px;" t-out="doc._e4c_report_destination_location()"/> <span style="margin-left:90px;">Postal Code</span></td>
+                            </tr>
+                            <tr>
+                                <td colspan="2">Vehicle Number <span style="margin-left:40px;" t-out="doc._e4c_report_truck()"/></td>
+                            </tr>
+                        </table>
+
+                        <t t-set="lines" t-value="doc._e4c_report_line_values()"/>
+                        <table class="e4c-bol-table e4c-bol-lines">
+                            <thead>
+                                <tr>
+                                    <th style="width:13%;">Number of<br/>Packages</th>
+                                    <th style="width:58%;">Type of Packages</th>
+                                    <th style="width:9%;">Total Quantity<br/>(mass,volume<br/>or activity)</th>
+                                    <th style="width:9%;">Weight<br/>(subject to<br/>correction)</th>
+                                    <th style="width:11%;">Class or<br/>Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="lines" t-as="line">
+                                    <td><span t-out="line.get('quantity')"/></td>
+                                    <td><span t-out="line.get('description')"/> <t t-if="line.get('serial')">- <span t-out="line.get('serial')"/></t></td>
+                                    <td></td>
+                                    <td><span t-out="line.get('weight')"/></td>
+                                    <td></td>
+                                </tr>
+                                <tr t-foreach="[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]" t-as="blank">
+                                    <td></td><td></td><td></td><td></td><td></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="e4c-bol-note">
+                            NOTE: Where the rate is dependent on value, shippers are required to state specifically in writing the agreed or declared value of the property.<br/>
+                            RECEIVED, subject to individually determined rates or contracts that have been agreed upon in writing between the carrier and shipper, if applicable, otherwise to the rates, classifications and rules that have been established by the carrier and are available to the shipper, on request; and all applicable state, provincial and federal regulations.
+                        </div>
+                        <div class="e4c-bol-red">
+                            This is to certify that the above-named materials are properly classified, described, packaged, marked, and labeled, and are in proper condition for transportation according to the applicable regulations of the Department of Transportation &#160;&#160;&#160; PER:
+                        </div>
+                        <table class="e4c-bol-signature-table">
+                            <tr>
+                                <td>CARRIER NAME ______________________________</td>
+                                <td>CONSIGNEE NAME ______________________________</td>
+                            </tr>
+                            <tr>
+                                <td>CARRIER SIGNATURE _________________________</td>
+                                <td>CONSIGNEE SIGNATURE _________________________</td>
+                            </tr>
+                            <tr>
+                                <td>DATE ______________________________________</td>
+                                <td>DATE ______________________________________</td>
+                            </tr>
+                            <tr>
+                                <td>SHIPPER NAME ______________________________</td>
+                                <td>TIME IN: _________________________________</td>
+                            </tr>
+                            <tr>
+                                <td>SHIPPER SIGNATURE _________________________</td>
+                                <td>TIME OUT: ________________________________</td>
+                            </tr>
+                            <tr>
+                                <td style="color:#d00; font-weight:700;">EMERGENCY RESPONSE<br/>TELEPHONE NUMBER:</td>
+                                <td style="color:#d00; font-weight:700;">NAME OR CONTRACT NUMBER<br/>OR OTHER UNIQUE IDENTIFIER:</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="e4c-bol-footer">1 &#160; SHIPPER COPY</div>
+                </div>
+                <div class="page e4c-doc" style="page-break-before: always;">
+                    <t t-call="tf_e4c_printouts.report_e4c_common_styles"/>
+                    <h2 style="text-align:center; font-size:16px; margin-bottom:12px;">Bill of Lading Terms</h2>
+                    <div class="e4c-terms" t-out="doc._e4c_report_bol_terms()"/>
+                </div>
+            </t>
+        </t>
+    </template>
+
+    <template id="report_e4c_receiving_labels">
+        <t t-call="web.basic_layout">
+            <t t-foreach="docs" t-as="picking">
+                <t t-foreach="picking._e4c_report_label_values()" t-as="label">
+                    <div class="page e4c-label-page">
+                        <t t-call="tf_e4c_printouts.report_e4c_common_styles"/>
+                        <div class="e4c-label-main"><span t-out="label.get('sales_order')"/></div>
+                        <div class="e4c-label-row"><span class="e4c-label-key">Customer:</span> <span t-out="label.get('customer')"/></div>
+                        <div class="e4c-label-row"><span class="e4c-label-key">Date:</span> <span t-out="label.get('date')"/></div>
+                        <div class="e4c-label-row"><span class="e4c-label-key">Container #:</span> <span t-out="label.get('container')"/></div>
+                        <div class="e4c-label-row"><span class="e4c-label-key">Serial Number:</span> <span t-out="label.get('serial')"/></div>
+                        <div class="e4c-label-row"><span class="e4c-label-key">Description:</span> <span t-out="label.get('description')"/></div>
+                        <div class="e4c-label-piece">PIECE <span t-out="label.get('piece_index')"/> OF <span t-out="label.get('piece_total')"/></div>
+                    </div>
+                    <div style="page-break-after: always;"/>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>

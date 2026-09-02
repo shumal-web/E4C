@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_tf_dispatch_ticket_form_e4c_printouts" model="ir.ui.view">
+        <field name="name">tf.dispatch.ticket.form.e4c.printouts</field>
+        <field name="model">tf.dispatch.ticket</field>
+        <field name="inherit_id" ref="tf_container_tracking.view_tf_dispatch_ticket_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_e4c_print_bol"
+                        type="object"
+                        string="Print BOL"
+                        class="btn-secondary"/>
+                <button name="action_e4c_print_truck_out_sheet"
+                        type="object"
+                        string="Truck Out Sheet"
+                        class="btn-secondary"/>
+                <button name="action_e4c_print_export_checklist"
+                        type="object"
+                        string="Export Checklist"
+                        class="btn-secondary"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

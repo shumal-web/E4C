@@ -208,14 +208,28 @@ class SaleOrder(models.Model):
         self._tf_schedule_credit_clear_for_invoiced()
         return invoices
 
+    def _tf_get_template_default_vals(self, template, vals=None):
+        vals = vals or {}
+        defaults = {}
+        if template and template.exists():
+            template_fields = {
+                "tf_shipment_type": "tf_shipment_type",
+                "tf_address_note": "tf_address_note",
+                "tf_special_instructions": "tf_special_instructions",
+            }
+            for order_field, template_field in template_fields.items():
+                value = template[template_field]
+                if order_field not in vals and value:
+                    defaults[order_field] = value
+        return defaults
+
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
             template_id = vals.get("sale_order_template_id")
-            if template_id and "tf_shipment_type" not in vals:
+            if template_id:
                 template = self.env["sale.order.template"].browse(template_id)
-                if template.exists() and template.tf_shipment_type:
-                    vals["tf_shipment_type"] = template.tf_shipment_type
+                vals.update(self._tf_get_template_default_vals(template, vals))
             if vals.get("partner_shipping_id") and not vals.get("tf_dispatch_contact_id"):
                 vals["tf_dispatch_contact_id"] = vals["partner_shipping_id"]
             elif vals.get("partner_id") and not vals.get("tf_dispatch_contact_id"):
@@ -223,22 +237,17 @@ class SaleOrder(models.Model):
         orders = super().create(vals_list)
         for order, vals in zip(orders, vals_list):
             template = order.sale_order_template_id
-            if (
-                template
-                and "tf_shipment_type" not in vals
-                and template.tf_shipment_type
-                and order.tf_shipment_type != template.tf_shipment_type
-            ):
-                order.tf_shipment_type = template.tf_shipment_type
+            template_defaults = order._tf_get_template_default_vals(template, vals)
+            if template_defaults:
+                order.write(template_defaults)
             if not order.tf_dispatch_contact_id:
                 order.tf_dispatch_contact_id = order.partner_shipping_id or order.partner_id
         return orders
 
     def write(self, vals):
-        if vals.get("sale_order_template_id") and "tf_shipment_type" not in vals:
+        if vals.get("sale_order_template_id"):
             template = self.env["sale.order.template"].browse(vals["sale_order_template_id"])
-            if template.exists() and template.tf_shipment_type:
-                vals = dict(vals, tf_shipment_type=template.tf_shipment_type)
+            vals = dict(vals, **self._tf_get_template_default_vals(template, vals))
         if vals.get("partner_shipping_id") and "tf_dispatch_contact_id" not in vals:
             vals = dict(vals, tf_dispatch_contact_id=vals["partner_shipping_id"])
         return super().write(vals)
@@ -247,8 +256,9 @@ class SaleOrder(models.Model):
     def _onchange_sale_order_template_id(self):
         res = super()._onchange_sale_order_template_id()
         for order in self:
-            if order.sale_order_template_id and order.sale_order_template_id.tf_shipment_type:
-                order.tf_shipment_type = order.sale_order_template_id.tf_shipment_type
+            template_defaults = order._tf_get_template_default_vals(order.sale_order_template_id)
+            for field_name, value in template_defaults.items():
+                order[field_name] = value
             if order.partner_shipping_id and not order.tf_dispatch_contact_id:
                 order.tf_dispatch_contact_id = order.partner_shipping_id
         return res

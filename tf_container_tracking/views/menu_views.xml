@@ -5,14 +5,22 @@
     </record>
 
     <record id="stock.menu_action_inventory_tree" model="ir.ui.menu">
+        <field name="active" eval="False"/>
         <field name="group_ids" eval="[(6, 0, [ref('base.group_no_one')])]"/>
     </record>
 
     <record id="stock.menu_stock_scrap" model="ir.ui.menu">
+        <field name="active" eval="False"/>
         <field name="group_ids" eval="[(6, 0, [ref('base.group_no_one')])]"/>
     </record>
 
     <record id="stock.menu_reordering_rules_replenish" model="ir.ui.menu">
+        <field name="active" eval="False"/>
+        <field name="group_ids" eval="[(6, 0, [ref('base.group_no_one')])]"/>
+    </record>
+
+    <record id="stock.menu_procurement_compute" model="ir.ui.menu">
+        <field name="active" eval="False"/>
         <field name="group_ids" eval="[(6, 0, [ref('base.group_no_one')])]"/>
     </record>
 </odoo>
