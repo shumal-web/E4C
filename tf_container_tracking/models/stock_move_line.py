@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
 from odoo import api, fields, models
 
-from .sale_serial_plan import INTERNAL_STATUS_SELECTION, CONTAINER_STATUS_SELECTION
+from .sale_serial_plan import (
+    INTERNAL_STATUS_SELECTION,
+    CONTAINER_STATUS_SELECTION,
+    ORIGIN_SELECTION,
+    SSL_SELECTION,
+    normalize_tf_container_selection_values,
+)
 
 
 SERIAL_ATTRIBUTE_FIELDS = {
@@ -51,7 +57,7 @@ class StockMoveLine(models.Model):
         string="Internal Status",
         default="for_approval",
     )
-    tf_port_to_destuff = fields.Char(string="Origin")
+    tf_port_to_destuff = fields.Selection(ORIGIN_SELECTION, string="Origin")
     tf_container_status = fields.Selection(
         CONTAINER_STATUS_SELECTION,
         string="Container Status",
@@ -61,7 +67,7 @@ class StockMoveLine(models.Model):
     tf_eta = fields.Date(string="ETA")
     tf_lfd = fields.Date(string="LFD")
     tf_cutoff_date = fields.Date(string="Cutoff")
-    tf_ssl = fields.Char(string="SSL")
+    tf_ssl = fields.Selection(SSL_SELECTION, string="SSL")
     tf_container_type = fields.Char(string="Type")
     tf_chassis_no = fields.Char(string="Chassis #")
     tf_pubk_no = fields.Char(string="PU/BK #")
@@ -150,7 +156,12 @@ class StockMoveLine(models.Model):
                 and line.picking_id.state != "cancel"
             )
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        return super().create([normalize_tf_container_selection_values(dict(vals)) for vals in vals_list])
+
     def write(self, vals):
+        vals = normalize_tf_container_selection_values(dict(vals))
         sync_fields = (SERIAL_ATTRIBUTE_FIELDS | CONTAINER_ATTRIBUTE_FIELDS | {"tf_container_plan_id"}).intersection(vals)
         res = super().write(vals)
         if sync_fields:

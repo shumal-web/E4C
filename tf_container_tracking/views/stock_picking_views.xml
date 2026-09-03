@@ -19,7 +19,9 @@
                 <field name="tf_customer_reference" readonly="1"/>
                 <field name="tf_container_number" readonly="1"/>
                 <field name="tf_flow_kind" readonly="1"/>
-                <field name="tf_address_note" widget="text" readonly="1"/>
+                <field name="tf_shipper_note" widget="text" readonly="1"/>
+                <field name="tf_consignee_note" widget="text" readonly="1"/>
+                <field name="tf_address_note" widget="text" readonly="1" invisible="1"/>
             </xpath>
             <xpath expr="//chatter" position="attributes">
                 <attribute name="open_attachments">True</attribute>

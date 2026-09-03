@@ -8,7 +8,12 @@ class SaleOrderLine(models.Model):
     def _tf_is_custom_logistics_line(self):
         self.ensure_one()
         product = self.product_id.product_tmpl_id
-        return bool(product.tf_is_container or product.tf_requires_container or product.tf_direct_container_to_client)
+        return bool(
+            product.tf_is_container
+            or product.tf_requires_container
+            or product.tf_direct_container_to_client
+            or product.tf_cfs_pieces_flow
+        )
 
     def _action_launch_stock_rule(self, *, previous_product_uom_qty=False):
         custom_lines = self.filtered(lambda line: line._tf_is_custom_logistics_line())

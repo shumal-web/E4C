@@ -47,6 +47,16 @@ class StockPicking(models.Model):
         related="tf_sale_order_id.tf_address_note",
         readonly=True,
     )
+    tf_shipper_note = fields.Text(
+        string="Shipper",
+        related="tf_sale_order_id.tf_shipper_note",
+        readonly=True,
+    )
+    tf_consignee_note = fields.Text(
+        string="Consignee",
+        related="tf_sale_order_id.tf_consignee_note",
+        readonly=True,
+    )
 
     @api.onchange("tf_sale_order_id")
     def _onchange_tf_sale_order_id(self):
@@ -65,14 +75,15 @@ class StockPicking(models.Model):
 
     @api.model
     def _tf_get_picking_type(self, code, company):
-        picking_type = self.env["stock.picking.type"].search(
-            [
-                ("code", "=", code),
-                ("warehouse_id", "!=", False),
-                ("company_id", "=", company.id),
-            ],
-            limit=1,
-        )
+        company = company or self.env.company
+        domain = [
+            ("code", "=", code),
+            ("warehouse_id", "!=", False),
+            ("company_id", "=", company.id),
+        ]
+        picking_type = self.env["stock.picking.type"].search(domain, limit=1)
+        if not picking_type:
+            picking_type = self.env["stock.picking.type"].with_context(active_test=False).search(domain, limit=1)
         return picking_type
 
     @api.model

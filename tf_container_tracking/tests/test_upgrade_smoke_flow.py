@@ -15,12 +15,33 @@ class TestUpgradeSmokeFlow(TransactionCase):
     serial planning, receiving, truck-out dispatch, and SO lot filtering.
     """
 
+    def setUp(self):
+        super().setUp()
+        self._ensure_test_warehouse()
+
+    def _ensure_test_warehouse(self):
+        warehouse = self.env["stock.warehouse"].search(
+            [("company_id", "=", self.env.company.id)],
+            limit=1,
+        )
+        if not warehouse:
+            warehouse = self.env["stock.warehouse"].create({
+                "name": "E4C Smoke Warehouse",
+                "code": "E4CS",
+                "company_id": self.env.company.id,
+            })
+        self.env["stock.picking.type"].with_context(active_test=False).search([
+            ("warehouse_id", "=", warehouse.id),
+            ("code", "in", ["incoming", "internal", "outgoing"]),
+            ("company_id", "=", self.env.company.id),
+        ]).write({"active": True})
+
     def _create_partner(self, name, **extra):
         vals = {"name": name}
         vals.update(extra)
         return self.env["res.partner"].create(vals)
 
-    def _create_product(self, name, is_container=False, requires_container=False, direct_flow=False):
+    def _create_product(self, name, is_container=False, requires_container=False, direct_flow=False, cfs_flow=False):
         template = self.env["product.template"].create({
             "name": name,
             "type": "consu",
@@ -29,6 +50,7 @@ class TestUpgradeSmokeFlow(TransactionCase):
             "tf_is_container": is_container,
             "tf_requires_container": requires_container,
             "tf_direct_container_to_client": direct_flow,
+            "tf_cfs_pieces_flow": cfs_flow,
             "tf_container_type": "40HC" if is_container else False,
             "sale_ok": True,
             "purchase_ok": True,
@@ -118,6 +140,8 @@ class TestUpgradeSmokeFlow(TransactionCase):
             "tf_dispatch_contact_id": dispatch_contact.id,
             "tf_shipment_type": "import",
             "tf_address_note": "Smoke dock address",
+            "tf_shipper_note": "Smoke shipper",
+            "tf_consignee_note": "Smoke consignee",
             "tf_special_instructions": "Smoke handling note",
             "tag_ids": [(6, 0, tag.ids)],
         })
@@ -238,6 +262,32 @@ class TestUpgradeSmokeFlow(TransactionCase):
             ("state", "!=", "cancel"),
         ]))
 
+    def test_03_cfs_pieces_upgrade_smoke_flow(self):
+        partner = self._create_partner("Smoke CFS Customer")
+        contact = self._create_partner("Smoke CFS Contact", parent_id=partner.id)
+        cfs_product = self._create_product("Smoke CFS Pieces", cfs_flow=True)
+
+        sale_order = self.env["sale.order"].create({
+            "partner_id": partner.id,
+            "partner_shipping_id": partner.id,
+            "tf_dispatch_contact_id": contact.id,
+            "tf_shipper_note": "Smoke CFS shipper",
+            "tf_consignee_note": "Smoke CFS consignee",
+        })
+        self._create_so_line(sale_order, cfs_product, 1.0)
+
+        sale_order.action_confirm()
+        sale_order.action_tf_approve()
+
+        tickets = self.env["tf.dispatch.ticket"].search([
+            ("sale_order_id", "=", sale_order.id),
+            ("dispatch_type", "in", ("cfs_piece_pickup_leg_1", "cfs_piece_delivery_leg_2")),
+            ("state", "!=", "cancel"),
+        ])
+        self.assertEqual(len(tickets), 2)
+        self.assertEqual(set(tickets.mapped("contact_id").ids), set(contact.ids))
+        self.assertFalse(sale_order.picking_ids)
+
     def _assert_critical_fields_exist(self):
         field_checks = {
             "sale.order": [
@@ -246,17 +296,22 @@ class TestUpgradeSmokeFlow(TransactionCase):
                 "tf_container_tracking_count",
                 "tf_dispatch_ticket_count",
                 "tf_address_note",
+                "tf_shipper_note",
+                "tf_consignee_note",
                 "tf_special_instructions",
                 "tf_credit_state",
             ],
             "sale.order.template": [
                 "tf_shipment_type",
                 "tf_address_note",
+                "tf_shipper_note",
+                "tf_consignee_note",
                 "tf_special_instructions",
             ],
             "product.template": [
                 "tf_container_type",
                 "tf_direct_container_to_client",
+                "tf_cfs_pieces_flow",
                 "tf_is_container",
                 "tf_requires_container",
             ],
@@ -267,13 +322,16 @@ class TestUpgradeSmokeFlow(TransactionCase):
                 "delivery_order_id",
                 "container_number",
             ],
-            "stock.lot": ["tf_origin_sale_order_id", "tf_container_lot_id"],
-            "stock.move.line": ["tf_allowed_lot_ids"],
+            "tf.sale.serial.plan": ["tf_ssl", "tf_port_to_destuff"],
+            "stock.lot": ["tf_origin_sale_order_id", "tf_container_lot_id", "tf_ssl", "tf_port_to_destuff"],
+            "stock.move.line": ["tf_allowed_lot_ids", "tf_ssl", "tf_port_to_destuff"],
         }
         for model_name, field_names in field_checks.items():
             model = self.env[model_name]
             for field_name in field_names:
                 self.assertIn(field_name, model._fields, f"Missing field {model_name}.{field_name}")
+        self.assertEqual(self.env["tf.sale.serial.plan"]._fields["tf_ssl"].type, "selection")
+        self.assertEqual(self.env["tf.sale.serial.plan"]._fields["tf_port_to_destuff"].type, "selection")
 
     def _assert_critical_views_load(self):
         view_checks = [
@@ -318,6 +376,8 @@ class TestUpgradeSmokeFlow(TransactionCase):
         ], limit=1)
         self.assertTrue(internal_type, "Internal picking type is required.")
         source = internal_type.default_location_src_id
+        for lot in expected_lots:
+            self.env["stock.quant"]._update_available_quantity(product, source, 1.0, lot_id=lot)
         self.env["stock.quant"]._update_available_quantity(product, source, 1.0, lot_id=other_lot)
 
         picking = self.env["stock.picking"].create({

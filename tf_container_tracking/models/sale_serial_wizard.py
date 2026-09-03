@@ -2,6 +2,8 @@
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 
+from .sale_serial_plan import ORIGIN_SELECTION, SSL_SELECTION, normalize_tf_container_selection_values
+
 
 class TfSaleSerialWizard(models.TransientModel):
     _inherit = "tf.sale.serial.wizard"
@@ -37,11 +39,13 @@ class TfSaleSerialWizard(models.TransientModel):
     tf_assign_dimension_unit = fields.Selection(
         [("mm", "mm"), ("cm", "cm"), ("m", "m"), ("in", "in"), ("ft", "ft")],
         string="Dim Unit",
+        default="cm",
     )
     tf_assign_weight = fields.Float(string="Weight")
     tf_assign_weight_unit = fields.Selection(
         [("g", "g"), ("kg", "kg"), ("lb", "lb")],
         string="Weight Unit",
+        default="kg",
     )
 
     def _tf_cm_to_inches(self, value):
@@ -215,6 +219,9 @@ class TfSaleSerialWizard(models.TransientModel):
                     "serial_name": seeded_name,
                     "tf_container_number": seeded_name,
                     "tf_internal_status": "for_approval",
+                    "tf_container_status": "on_water",
+                    "tf_weight_unit": "kg",
+                    "tf_import_export": sol.order_id.tf_shipment_type,
                 }))
         if not line_commands:
             return res
@@ -242,9 +249,9 @@ class TfSaleSerialWizard(models.TransientModel):
                     "tf_assign_length": sample_plan.tf_length,
                     "tf_assign_width": sample_plan.tf_width,
                     "tf_assign_height": sample_plan.tf_height,
-                    "tf_assign_dimension_unit": sample_plan.tf_dimension_unit,
+                    "tf_assign_dimension_unit": sample_plan.tf_dimension_unit or "cm",
                     "tf_assign_weight": sample_plan.tf_weight,
-                    "tf_assign_weight_unit": sample_plan.tf_weight_unit,
+                    "tf_assign_weight_unit": sample_plan.tf_weight_unit or "kg",
                 })
 
         patched_commands = []
@@ -262,6 +269,12 @@ class TfSaleSerialWizard(models.TransientModel):
                 vals.setdefault("tf_internal_status", "for_approval")
             elif allow_blank_serial and not plan:
                 vals["serial_name"] = False
+
+            if is_container:
+                vals["tf_weight_unit"] = vals.get("tf_weight_unit") or "kg"
+            else:
+                vals["tf_dimension_unit"] = vals.get("tf_dimension_unit") or "cm"
+                vals["tf_weight_unit"] = vals.get("tf_weight_unit") or "kg"
 
             vals.update({
                 "plan_id": plan.id if plan else False,
@@ -284,6 +297,11 @@ class TfSaleSerialWizard(models.TransientModel):
                     "tf_pubk_no": plan.tf_pubk_no if plan else False,
                     "tf_import_export": plan.tf_import_export if plan else sol.order_id.tf_shipment_type,
                 })
+            if not is_container:
+                vals["tf_dimension_unit"] = vals.get("tf_dimension_unit") or "cm"
+                vals["tf_weight_unit"] = vals.get("tf_weight_unit") or "kg"
+            elif not vals.get("tf_weight_unit"):
+                vals["tf_weight_unit"] = "kg"
             patched_commands.append((0, 0, vals))
 
         res["line_ids"] = patched_commands
@@ -307,6 +325,8 @@ class TfSaleSerialWizard(models.TransientModel):
                         {
                             "sequence": index * 10,
                             "serial_name": False,
+                            "tf_dimension_unit": "cm",
+                            "tf_weight_unit": "kg",
                         },
                     )
                 ]
@@ -341,7 +361,9 @@ class TfSaleSerialWizard(models.TransientModel):
                         "serial_name": seeded_name,
                         "tf_container_number": seeded_name,
                         "tf_internal_status": "for_approval",
+                        "tf_container_status": "on_water",
                         "tf_container_type": self.product_id.product_tmpl_id.tf_container_type,
+                        "tf_weight_unit": "kg",
                         "tf_import_export": self.order_id.tf_shipment_type,
                     },
                 )
@@ -419,9 +441,9 @@ class TfSaleSerialWizard(models.TransientModel):
                     "tf_length": self.tf_assign_length,
                     "tf_width": self.tf_assign_width,
                     "tf_height": self.tf_assign_height,
-                    "tf_dimension_unit": self.tf_assign_dimension_unit,
+                    "tf_dimension_unit": self.tf_assign_dimension_unit or "cm",
                     "tf_weight": self.tf_assign_weight,
-                    "tf_weight_unit": self.tf_assign_weight_unit,
+                    "tf_weight_unit": self.tf_assign_weight_unit or "kg",
                     "tf_storage_rate": plan.tf_storage_rate if plan else False,
                     "tf_location_note": plan.tf_location_note if plan else False,
                 }
@@ -508,6 +530,11 @@ class TfSaleSerialWizard(models.TransientModel):
                 "tf_pubk_no": line.tf_pubk_no,
                 "tf_import_export": line.tf_import_export,
             }
+            if self.tf_is_container_product:
+                values["tf_weight_unit"] = values.get("tf_weight_unit") or "kg"
+            else:
+                values["tf_dimension_unit"] = values.get("tf_dimension_unit") or "cm"
+                values["tf_weight_unit"] = values.get("tf_weight_unit") or "kg"
 
             existing_plan = False
             if line.plan_id and line.plan_id.id in existing_by_id:
@@ -566,7 +593,7 @@ class TfSaleSerialWizardLine(models.TransientModel):
         string="Internal Status",
         default="for_approval",
     )
-    tf_port_to_destuff = fields.Char(string="Origin")
+    tf_port_to_destuff = fields.Selection(ORIGIN_SELECTION, string="Origin")
     tf_container_status = fields.Selection(
         [
             ("on_water", "On the Water"),
@@ -584,7 +611,7 @@ class TfSaleSerialWizardLine(models.TransientModel):
     tf_eta = fields.Date(string="ETA")
     tf_lfd = fields.Date(string="LFD")
     tf_cutoff_date = fields.Date(string="Cutoff")
-    tf_ssl = fields.Char(string="SSL")
+    tf_ssl = fields.Selection(SSL_SELECTION, string="SSL")
     tf_container_type = fields.Char(string="Type")
     tf_chassis_no = fields.Char(string="Chassis #")
     tf_pubk_no = fields.Char(string="PU/BK #")
@@ -595,6 +622,13 @@ class TfSaleSerialWizardLine(models.TransientModel):
         ],
         string="Import/Export",
     )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        return super().create([normalize_tf_container_selection_values(dict(vals)) for vals in vals_list])
+
+    def write(self, vals):
+        return super().write(normalize_tf_container_selection_values(dict(vals)))
 
 
 class TfSaleSerialWizardAssignLine(models.TransientModel):

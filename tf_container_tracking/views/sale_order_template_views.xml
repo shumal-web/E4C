@@ -7,8 +7,10 @@
         <field name="arch" type="xml">
             <xpath expr="//group[@name='sale_info']/field[@name='mail_template_id']" position="after">
                 <field name="tf_shipment_type"/>
-                <field name="tf_address_note" widget="text" placeholder="Address details..."/>
+                <field name="tf_shipper_note" widget="text" placeholder="Shipper details..."/>
+                <field name="tf_consignee_note" widget="text" placeholder="Consignee details..."/>
                 <field name="tf_special_instructions" widget="text" placeholder="Special instructions..."/>
+                <field name="tf_address_note" invisible="1"/>
             </xpath>
         </field>
     </record>
@@ -20,6 +22,8 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='name']" position="after">
                 <field name="tf_shipment_type" optional="show"/>
+                <field name="tf_shipper_note" optional="hide"/>
+                <field name="tf_consignee_note" optional="hide"/>
                 <field name="tf_address_note" optional="hide"/>
                 <field name="tf_special_instructions" optional="hide"/>
             </xpath>

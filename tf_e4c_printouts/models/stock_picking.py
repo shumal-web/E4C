@@ -22,13 +22,19 @@ class StockPicking(models.Model):
     _inherit = "stock.picking"
 
     def action_e4c_print_receiving_labels(self):
-        return self.env.ref("tf_e4c_printouts.action_report_e4c_receiving_labels").report_action(self)
+        return self.env.ref("tf_e4c_printouts.action_report_e4c_receiving_labels").with_context(
+            discard_logo_check=True
+        ).report_action(self)
 
     def action_e4c_print_truck_in_sheet(self):
-        return self.env.ref("tf_e4c_printouts.action_report_e4c_truck_in_sheet").report_action(self)
+        return self.env.ref("tf_e4c_printouts.action_report_e4c_truck_in_sheet").with_context(
+            discard_logo_check=True
+        ).report_action(self)
 
     def action_e4c_print_truck_out_sheet(self):
-        return self.env.ref("tf_e4c_printouts.action_report_e4c_truck_out_sheet_picking").report_action(self)
+        return self.env.ref("tf_e4c_printouts.action_report_e4c_truck_out_sheet_picking").with_context(
+            discard_logo_check=True
+        ).report_action(self)
 
     def _e4c_report_sale_orders(self):
         self.ensure_one()
@@ -61,8 +67,21 @@ class StockPicking(models.Model):
 
     def _e4c_report_customer_address(self):
         self.ensure_one()
+        return self._e4c_report_consignee_address()
+
+    def _e4c_report_shipper_address(self):
+        self.ensure_one()
         sale_order = self._e4c_report_sale_orders()[:1]
-        return text_value(safe_get(sale_order, "tf_address_note")) or partner_address(self.partner_id or sale_order.partner_shipping_id or sale_order.partner_id)
+        return text_value(safe_get(sale_order, "tf_shipper_note")) or "E4C\n795 GEORGE V\nLACHINE,QC H8S 3K3"
+
+    def _e4c_report_consignee_address(self):
+        self.ensure_one()
+        sale_order = self._e4c_report_sale_orders()[:1]
+        return (
+            text_value(safe_get(sale_order, "tf_consignee_note"))
+            or text_value(safe_get(sale_order, "tf_address_note"))
+            or partner_address(self.partner_id or sale_order.partner_shipping_id or sale_order.partner_id)
+        )
 
     def _e4c_report_customer_reference(self):
         self.ensure_one()

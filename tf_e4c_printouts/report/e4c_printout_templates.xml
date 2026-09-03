@@ -379,6 +379,14 @@
                                 <td><span t-out="doc._e4c_report_customer_name()"/></td>
                             </tr>
                             <tr>
+                                <td>Shipper:</td>
+                                <td><span style="white-space:pre-line;" t-out="doc._e4c_report_shipper_address()"/></td>
+                            </tr>
+                            <tr>
+                                <td>Consignee:</td>
+                                <td><span style="white-space:pre-line;" t-out="doc._e4c_report_consignee_address()"/></td>
+                            </tr>
+                            <tr>
                                 <td>Customer PO:</td>
                                 <td><span t-out="doc._e4c_report_customer_reference()"/></td>
                             </tr>
@@ -519,6 +527,14 @@
                                         <td><span t-out="doc._e4c_report_customer_name()"/></td>
                                     </tr>
                                     <tr>
+                                        <td>Shipper:</td>
+                                        <td><span style="white-space:pre-line;" t-out="doc._e4c_report_shipper_address()"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Consignee:</td>
+                                        <td><span style="white-space:pre-line;" t-out="doc._e4c_report_consignee_address()"/></td>
+                                    </tr>
+                                    <tr>
                                         <td>Customer PO:</td>
                                         <td><span t-out="doc._e4c_report_customer_reference()"/></td>
                                     </tr>
@@ -597,12 +613,12 @@
 
                         <table class="e4c-bol-table e4c-bol-party">
                             <tr>
-                                <td style="width:50%;"><strong>FROM:</strong><br/>Shipper<br/><span style="font-size:16px;">E4C</span></td>
-                                <td style="width:50%;"><strong>TO:</strong><br/>Consignee<br/><span style="font-size:16px;" t-out="doc._e4c_report_customer_name()"/></td>
+                                <td style="width:50%;"><strong>FROM:</strong><br/>Shipper</td>
+                                <td style="width:50%;"><strong>TO:</strong><br/>Consignee</td>
                             </tr>
                             <tr>
-                                <td>Street<br/><span style="font-size:15px;">795 GEORGE V</span></td>
-                                <td>Street<br/><span class="e4c-field-space" style="font-size:15px; white-space:pre-line;" t-out="doc._e4c_report_customer_address()"/></td>
+                                <td>Street<br/><span style="font-size:15px; white-space:pre-line;" t-out="doc._e4c_report_shipper_address()"/></td>
+                                <td>Street<br/><span class="e4c-field-space" style="font-size:15px; white-space:pre-line;" t-out="doc._e4c_report_consignee_address()"/></td>
                             </tr>
                             <tr>
                                 <td>Origin <span style="margin-left:52px; font-size:15px;">LACHINE,QC</span> <span style="margin-left:110px;">Postal Code</span> <span style="font-size:15px;">H8S 3K3</span></td>

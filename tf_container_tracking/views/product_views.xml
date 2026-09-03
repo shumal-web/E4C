@@ -12,6 +12,8 @@
                 <field name="tf_requires_container" invisible="tf_is_container"/>
                 <field name="tf_direct_container_to_client"
                        invisible="tf_is_container or tf_requires_container"/>
+                <field name="tf_cfs_pieces_flow"
+                       invisible="tf_is_container or tf_requires_container or tf_direct_container_to_client"/>
             </xpath>
         </field>
     </record>

@@ -13,6 +13,7 @@ class TestE4CPrintouts(TransactionCase):
         # Odoo's TransactionCase is single-process; point wkhtmltopdf at a closed
         # port so report asset lookups fail fast instead of deadlocking the suite.
         self.env["ir.config_parameter"].sudo().set_param("report.url", "http://127.0.0.1:9")
+        self._ensure_test_warehouse()
         self.partner = self.env["res.partner"].create({
             "name": "Printout Customer",
             "street": "100 Test Street",
@@ -39,6 +40,8 @@ class TestE4CPrintouts(TransactionCase):
             "partner_id": self.partner.id,
             "client_order_ref": "PO-PRINT-001",
             "tf_address_note": "Dock 3, Montreal warehouse",
+            "tf_shipper_note": "Printout Shipper",
+            "tf_consignee_note": "Printout Consignee",
             "tf_special_instructions": "Call before arrival",
         })
         self.container_line = self.env["sale.order.line"].create({
@@ -64,7 +67,7 @@ class TestE4CPrintouts(TransactionCase):
             "tf_container_number": "SOPRINT-C01",
             "tf_container_type": "40HC",
             "tf_pubk_no": "BK-001",
-            "tf_ssl": "SSL-001",
+            "tf_ssl": "MSC",
             "tf_weight": 1000,
             "tf_weight_unit": "kg",
         })
@@ -114,6 +117,23 @@ class TestE4CPrintouts(TransactionCase):
             "location_note": "WH/Stock",
             "internal_transfer_id": self.picking.id,
         })
+
+    def _ensure_test_warehouse(self):
+        warehouse = self.env["stock.warehouse"].search(
+            [("company_id", "=", self.env.company.id)],
+            limit=1,
+        )
+        if not warehouse:
+            warehouse = self.env["stock.warehouse"].create({
+                "name": "E4C Test Warehouse",
+                "code": "E4CT",
+                "company_id": self.env.company.id,
+            })
+        self.env["stock.picking.type"].with_context(active_test=False).search([
+            ("warehouse_id", "=", warehouse.id),
+            ("code", "in", ["incoming", "internal", "outgoing"]),
+            ("company_id", "=", self.env.company.id),
+        ]).write({"active": True})
 
     def _create_stock_picking(self):
         picking_type = self.env["stock.picking.type"].search([
@@ -232,23 +252,23 @@ class TestE4CPrintouts(TransactionCase):
             ),
             "tf_e4c_printouts.report_e4c_truck_in_sheet": (
                 "tf_e4c_printouts.action_report_e4c_truck_in_sheet",
-                ["Truck Sheet", "In", "Fragile Case"],
+                ["Truck Sheet", "In", "Fragile Case", "Printout Shipper", "Printout Consignee"],
             ),
             "tf_e4c_printouts.report_e4c_truck_out_sheet_picking": (
                 "tf_e4c_printouts.action_report_e4c_truck_out_sheet_picking",
-                ["Truck Sheet", "Out", "Fragile Case"],
+                ["Truck Sheet", "Out", "Fragile Case", "Printout Shipper", "Printout Consignee"],
             ),
             "tf_e4c_printouts.report_e4c_dispatch_bol": (
                 "tf_e4c_printouts.action_report_e4c_dispatch_bol",
-                ["STRAIGHT BILL OF LADING", "SOPRINT-1 1 of 1", "Bill of Lading Terms"],
+                ["STRAIGHT BILL OF LADING", "SOPRINT-1 1 of 1", "Printout Shipper", "Printout Consignee", "Bill of Lading Terms"],
             ),
             "tf_e4c_printouts.report_e4c_dispatch_truck_out_sheet": (
                 "tf_e4c_printouts.action_report_e4c_dispatch_truck_out_sheet",
-                ["Truck Sheet", "Out", "Fragile Case"],
+                ["Truck Sheet", "Out", "Fragile Case", "Printout Shipper", "Printout Consignee"],
             ),
             "tf_e4c_printouts.report_e4c_export_checklist": (
                 "tf_e4c_printouts.action_report_e4c_export_checklist",
-                ["EXPORT CHECKLIST", "Load, Block, Brace", "Fragile Case"],
+                ["EXPORT CHECKLIST", "Load, Block, Brace", "Fragile Case", "Printout Shipper", "Printout Consignee"],
             ),
         }
         picking_reports = {

@@ -41,6 +41,12 @@ class SaleOrder(models.Model):
     tf_address_note = fields.Text(
         string="Address",
     )
+    tf_shipper_note = fields.Text(
+        string="Shipper",
+    )
+    tf_consignee_note = fields.Text(
+        string="Consignee",
+    )
     tf_dispatch_contact_id = fields.Many2one(
         "res.partner",
         string="Dispatch Contact",
@@ -215,12 +221,16 @@ class SaleOrder(models.Model):
             template_fields = {
                 "tf_shipment_type": "tf_shipment_type",
                 "tf_address_note": "tf_address_note",
+                "tf_shipper_note": "tf_shipper_note",
+                "tf_consignee_note": "tf_consignee_note",
                 "tf_special_instructions": "tf_special_instructions",
             }
             for order_field, template_field in template_fields.items():
                 value = template[template_field]
                 if order_field not in vals and value:
                     defaults[order_field] = value
+            if "tf_consignee_note" not in vals and "tf_consignee_note" not in defaults and template.tf_address_note:
+                defaults["tf_consignee_note"] = template.tf_address_note
         return defaults
 
     @api.model_create_multi
@@ -269,6 +279,12 @@ class SaleOrder(models.Model):
                 return True
         return False
 
+    def _tf_has_cfs_pieces_flow(self):
+        for order in self:
+            if any(order.order_line.mapped("product_id.product_tmpl_id.tf_cfs_pieces_flow")):
+                return True
+        return False
+
     def _tf_container_seed(self, index):
         self.ensure_one()
         order_name = (self.name or "SO").replace("/", "-").replace(" ", "")
@@ -283,6 +299,7 @@ class SaleOrder(models.Model):
         return self.order_line.filtered(
             lambda l: not l.product_id.product_tmpl_id.tf_is_container
             and not l.product_id.product_tmpl_id.tf_direct_container_to_client
+            and not l.product_id.product_tmpl_id.tf_cfs_pieces_flow
         )
 
     def _tf_ensure_container_plans_from_order(self, internal_status):
@@ -323,6 +340,7 @@ class SaleOrder(models.Model):
         for order in self:
             target_status = "tracking" if order.tf_shipment_type == "import" else "pickup"
             order._tf_ensure_container_plans_from_order(target_status)
+            order._tf_ensure_cfs_pieces_flow()
             order.tf_flow_state = "approved"
             order.order_line.mapped("tf_serial_plan_ids").filtered("tf_is_container_product")._tf_apply_ready_dispatch_logic()
         return True
@@ -349,6 +367,37 @@ class SaleOrder(models.Model):
                 "note": title,
             }
         )
+
+    def _tf_ensure_cfs_pieces_flow(self):
+        self.ensure_one()
+        if not self._tf_has_cfs_pieces_flow():
+            return self.env["tf.dispatch.ticket"], self.env["tf.dispatch.ticket"]
+
+        shipper_location = (
+            self.tf_shipper_note
+            or self.partner_shipping_id.display_name
+            or self.partner_id.display_name
+        )
+        consignee_location = (
+            self.tf_consignee_note
+            or self.partner_shipping_id.display_name
+            or self.partner_id.display_name
+        )
+        leg_1 = self._tf_create_order_dispatch_ticket(
+            "cfs_piece_pickup_leg_1",
+            _("CFS Pieces Pickup Leg 1"),
+            location_note=shipper_location,
+        )
+        leg_2 = self._tf_create_order_dispatch_ticket(
+            "cfs_piece_delivery_leg_2",
+            _("CFS Pieces Delivery Leg 2"),
+            location_note=consignee_location,
+        )
+        if not leg_1.trailer_destination_location:
+            leg_1.trailer_destination_location = shipper_location
+        if not leg_2.trailer_destination_location:
+            leg_2.trailer_destination_location = consignee_location
+        return leg_1, leg_2
 
     def action_tf_create_export_flow(self):
         for order in self:

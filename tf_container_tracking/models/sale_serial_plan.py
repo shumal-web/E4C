@@ -23,6 +23,63 @@ CONTAINER_STATUS_SELECTION = [
     ("returned", "Returned"),
 ]
 
+SSL_SELECTION = [
+    ("CMA CGM", "CMA CGM"),
+    ("MSC", "MSC"),
+    ("HAPAG-LLOYD", "HAPAG-LLOYD"),
+    ("MAERSK", "MAERSK"),
+    ("ONE", "ONE"),
+    ("ZIM", "ZIM"),
+    ("EVERGREEN", "EVERGREEN"),
+    ("COSCO", "COSCO"),
+    ("HMM", "HMM"),
+    ("YANG MING MARINE", "YANG MING MARINE"),
+]
+
+ORIGIN_SELECTION = [
+    ("mgt section 77", "mgt section 77"),
+    ("mgt section 62", "mgt section 62"),
+    ("Termont Viau 52", "Termont Viau 52"),
+    ("Termont Maisonneuve 68", "Termont Maisonneuve 68"),
+    ("CN", "CN"),
+    ("CP", "CP"),
+]
+
+SSL_VALUE_MAP = dict(SSL_SELECTION)
+SSL_VALUE_MAP.update(
+    {
+        "CMA-CGM": "CMA CGM",
+        "cma cgm": "CMA CGM",
+        "msc": "MSC",
+        "hapag-lloyd": "HAPAG-LLOYD",
+        "maersk": "MAERSK",
+        "one": "ONE",
+        "zim": "ZIM",
+        "evergreen": "EVERGREEN",
+        "cosco": "COSCO",
+        "hmm": "HMM",
+        "yang ming marine": "YANG MING MARINE",
+    }
+)
+ORIGIN_VALUE_MAP = dict(ORIGIN_SELECTION)
+ORIGIN_VALUE_MAP.update(
+    {
+        "MGT Section 77": "mgt section 77",
+        "MGT Section 62": "mgt section 62",
+        "mgt 77": "mgt section 77",
+        "mgt 62": "mgt section 62",
+    }
+)
+
+
+def normalize_tf_container_selection_values(vals):
+    """Keep legacy free-text values from crashing new selection fields."""
+    if vals.get("tf_ssl"):
+        vals["tf_ssl"] = SSL_VALUE_MAP.get(vals["tf_ssl"], False)
+    if vals.get("tf_port_to_destuff"):
+        vals["tf_port_to_destuff"] = ORIGIN_VALUE_MAP.get(vals["tf_port_to_destuff"], False)
+    return vals
+
 DISPATCH_PROGRESS_SELECTION = [
     ("not_dispatched", "Not Dispatched"),
     ("delivery", "Delivery"),
@@ -55,7 +112,12 @@ class TfSaleSerialPlan(models.Model):
         index=True,
         tracking=True,
     )
-    tf_port_to_destuff = fields.Char(string="Origin", index=True, tracking=True)
+    tf_port_to_destuff = fields.Selection(
+        ORIGIN_SELECTION,
+        string="Origin",
+        index=True,
+        tracking=True,
+    )
     tf_container_status = fields.Selection(
         CONTAINER_STATUS_SELECTION,
         string="Container Status",
@@ -75,7 +137,12 @@ class TfSaleSerialPlan(models.Model):
     tf_eta = fields.Date(string="ETA", index=True, tracking=True)
     tf_lfd = fields.Date(string="LFD", index=True, tracking=True)
     tf_cutoff_date = fields.Date(string="Cutoff", index=True, tracking=True)
-    tf_ssl = fields.Char(string="SSL", index=True, tracking=True)
+    tf_ssl = fields.Selection(
+        SSL_SELECTION,
+        string="SSL",
+        index=True,
+        tracking=True,
+    )
     tf_container_type = fields.Char(string="Type", index=True, tracking=True)
     tf_chassis_no = fields.Char(string="Chassis #", index=True, tracking=True)
     tf_pubk_no = fields.Char(string="PU/BK #", index=True, tracking=True)
@@ -182,6 +249,24 @@ class TfSaleSerialPlan(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        prepared_vals = []
+        for vals in vals_list:
+            vals = normalize_tf_container_selection_values(dict(vals))
+            order_line = self.env["sale.order.line"].browse(vals.get("order_line_id")).exists()
+            product_template = order_line.product_id.product_tmpl_id if order_line else self.env["product.template"]
+            if product_template:
+                if product_template.tf_is_container:
+                    if not vals.get("tf_container_status"):
+                        vals["tf_container_status"] = "on_water"
+                    if not vals.get("tf_weight_unit"):
+                        vals["tf_weight_unit"] = "kg"
+                elif not product_template.tf_direct_container_to_client and not product_template.tf_cfs_pieces_flow:
+                    if not vals.get("tf_dimension_unit"):
+                        vals["tf_dimension_unit"] = "cm"
+                    if not vals.get("tf_weight_unit"):
+                        vals["tf_weight_unit"] = "kg"
+            prepared_vals.append(vals)
+        vals_list = prepared_vals
         if not self.env.su and not self.env.user.has_group("stock.group_stock_manager"):
             for vals in vals_list:
                 if "tf_internal_status" in vals and vals.get("tf_internal_status") not in (False, "for_approval"):
@@ -219,6 +304,7 @@ class TfSaleSerialPlan(models.Model):
                 )
 
     def write(self, vals):
+        vals = normalize_tf_container_selection_values(dict(vals))
         if "tf_internal_status" in vals:
             new_status = vals.get("tf_internal_status")
             changed_records = self.filtered(lambda rec: rec.tf_internal_status != new_status)

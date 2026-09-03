@@ -62,27 +62,38 @@
                 <field name="tf_shipment_type"/>
                 <field name="tf_dispatch_contact_id" options="{'no_create_edit': True}"/>
                 <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color', 'no_create_edit': True}"/>
+                <field name="tf_shipper_note" widget="text" placeholder="Shipper details..."/>
+                <field name="tf_consignee_note" widget="text" placeholder="Consignee details..."/>
+                <field name="tf_special_instructions" widget="text" placeholder="Special instructions..."/>
+                <field name="tf_address_note" invisible="1"/>
             </xpath>
 
             <xpath expr="//group[@name='partner_details']/field[@name='partner_shipping_id']" position="after">
                 <field name="client_order_ref"/>
             </xpath>
 
-            <xpath expr="//group[@name='order_details']/field[@name='date_order'][last()]" position="after">
-                <field name="tf_address_note" widget="text" placeholder="Address details..."/>
-                <field name="tf_special_instructions" widget="text" placeholder="Special instructions..."/>
-                <separator string="E4C Credit Control"/>
-                <field name="tf_credit_state" readonly="1"/>
-                <field name="tf_credit_clear_date" readonly="1"/>
-                <field name="tf_partner_credit_limit" widget="monetary" options="{'currency_field': 'currency_id'}" readonly="1"/>
-                <field name="tf_partner_credit_used" widget="monetary" options="{'currency_field': 'currency_id'}" readonly="1"/>
-                <field name="tf_partner_credit_available" widget="monetary" options="{'currency_field': 'currency_id'}" readonly="1"/>
-                <field name="tf_partner_credit_over_limit" readonly="1"/>
-                <button name="action_tf_clear_credit"
-                        type="object"
-                        string="Clear E4C Credit"
-                        class="btn-secondary"
-                        invisible="tf_credit_state == 'cleared'"/>
+            <xpath expr="//notebook" position="inside">
+                <page name="tf_e4c_credit_control" string="E4C Credit Control">
+                    <group>
+                        <group>
+                            <field name="tf_credit_state" readonly="1"/>
+                            <field name="tf_credit_clear_date" readonly="1"/>
+                            <field name="tf_credit_cleared_on" readonly="1"/>
+                            <field name="tf_credit_cleared_by_id" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="tf_partner_credit_limit" widget="monetary" options="{'currency_field': 'currency_id'}" readonly="1"/>
+                            <field name="tf_partner_credit_used" widget="monetary" options="{'currency_field': 'currency_id'}" readonly="1"/>
+                            <field name="tf_partner_credit_available" widget="monetary" options="{'currency_field': 'currency_id'}" readonly="1"/>
+                            <field name="tf_partner_credit_over_limit" readonly="1"/>
+                            <button name="action_tf_clear_credit"
+                                    type="object"
+                                    string="Clear E4C Credit"
+                                    class="btn-secondary"
+                                    invisible="tf_credit_state == 'cleared'"/>
+                        </group>
+                    </group>
+                </page>
             </xpath>
 
             <xpath expr="//page[@name='other_information']//field[@name='client_order_ref']" position="attributes">

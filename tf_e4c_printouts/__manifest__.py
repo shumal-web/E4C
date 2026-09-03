@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "E4C Printouts",
-    "version": "19.0.1.1.0",
+    "version": "19.0.1.2.0",
     "category": "Inventory/Sales",
     "summary": "E4C BOL, truck sheets, export checklist, and receiving labels.",
     "author": "E4C",

@@ -28,14 +28,23 @@ class StockMove(models.Model):
             prefix = container_plan.serial_name or container_plan.tf_container_number or False
             if prefix and not prefix.endswith("/"):
                 prefix = "%s/" % prefix
+        product_template = self.product_id.product_tmpl_id
+        dimension_unit = sample_source.tf_dimension_unit or False
+        weight_unit = sample_source.tf_weight_unit or False
+        if self.product_id.tracking == "serial":
+            if product_template.tf_is_container:
+                weight_unit = weight_unit or "kg"
+            elif not product_template.tf_direct_container_to_client and not product_template.tf_cfs_pieces_flow:
+                dimension_unit = dimension_unit or "cm"
+                weight_unit = weight_unit or "kg"
         return {
             "first_serial": ("%s001" % prefix) if prefix else False,
             "tf_length": sample_source.tf_length or 0.0,
             "tf_width": sample_source.tf_width or 0.0,
             "tf_height": sample_source.tf_height or 0.0,
-            "tf_dimension_unit": sample_source.tf_dimension_unit or False,
+            "tf_dimension_unit": dimension_unit,
             "tf_weight": sample_source.tf_weight or 0.0,
-            "tf_weight_unit": sample_source.tf_weight_unit or False,
+            "tf_weight_unit": weight_unit,
             "template_move_line_ids": template_lines.ids,
         }
 

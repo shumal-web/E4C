@@ -60,6 +60,8 @@ class TfDispatchTicket(models.Model):
             ("export_container_leg_2", "Container Export Leg 2"),
             ("export_container_leg_3", "Container Export Leg 3"),
             ("direct_container_client", "Direct Container to Client"),
+            ("cfs_piece_pickup_leg_1", "CFS Pieces Pickup Leg 1"),
+            ("cfs_piece_delivery_leg_2", "CFS Pieces Delivery Leg 2"),
             ("import_dispatch", "Import Dispatch"),
             ("standalone", "Standalone"),
         ],
@@ -140,13 +142,23 @@ class TfDispatchTicket(models.Model):
         related="sale_order_id.tf_address_note",
         readonly=True,
     )
-    tf_origin = fields.Char(
+    tf_shipper_note = fields.Text(
+        string="Shipper",
+        related="sale_order_id.tf_shipper_note",
+        readonly=True,
+    )
+    tf_consignee_note = fields.Text(
+        string="Consignee",
+        related="sale_order_id.tf_consignee_note",
+        readonly=True,
+    )
+    tf_origin = fields.Selection(
         string="Origin",
         related="container_plan_id.tf_port_to_destuff",
         store=True,
         readonly=True,
     )
-    tf_ssl = fields.Char(
+    tf_ssl = fields.Selection(
         string="SSL",
         related="container_plan_id.tf_ssl",
         store=True,
@@ -353,6 +365,27 @@ class TfDispatchTicket(models.Model):
         if self.dispatch_type == "delivery_leg_1" and self.container_plan_id:
             plan = self.container_plan_id.sudo()
             leg_2 = plan._tf_ensure_delivery_leg_2()
+            vals = {}
+            if self.trailer_id and not leg_2.trailer_id:
+                vals["trailer_id"] = self.trailer_id.id
+            if self.truck_id and not leg_2.truck_id:
+                vals["truck_id"] = self.truck_id.id
+            if self.driver_id and not leg_2.driver_id:
+                vals["driver_id"] = self.driver_id.id
+            if self.trailer_destination_location and not leg_2.trailer_current_location:
+                vals["trailer_current_location"] = self.trailer_destination_location
+            if vals:
+                leg_2.write(vals)
+            return {
+                "type": "ir.actions.act_window",
+                "name": _("Dispatch Ticket"),
+                "res_model": "tf.dispatch.ticket",
+                "res_id": leg_2.id,
+                "view_mode": "form",
+                "target": "current",
+            }
+        if self.dispatch_type == "cfs_piece_pickup_leg_1" and self.sale_order_id:
+            leg_2 = self.sale_order_id._tf_ensure_cfs_pieces_flow()[1]
             vals = {}
             if self.trailer_id and not leg_2.trailer_id:
                 vals["trailer_id"] = self.trailer_id.id

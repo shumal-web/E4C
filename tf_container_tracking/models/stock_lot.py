@@ -4,7 +4,13 @@ from collections import defaultdict
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 
-from .sale_serial_plan import INTERNAL_STATUS_SELECTION, CONTAINER_STATUS_SELECTION
+from .sale_serial_plan import (
+    INTERNAL_STATUS_SELECTION,
+    CONTAINER_STATUS_SELECTION,
+    ORIGIN_SELECTION,
+    SSL_SELECTION,
+    normalize_tf_container_selection_values,
+)
 
 
 class StockLot(models.Model):
@@ -39,7 +45,7 @@ class StockLot(models.Model):
         string="Internal Status",
         default="for_approval",
     )
-    tf_port_to_destuff = fields.Char(string="Origin")
+    tf_port_to_destuff = fields.Selection(ORIGIN_SELECTION, string="Origin")
     tf_container_status = fields.Selection(
         CONTAINER_STATUS_SELECTION,
         string="Container Status",
@@ -49,7 +55,7 @@ class StockLot(models.Model):
     tf_eta = fields.Date(string="ETA")
     tf_lfd = fields.Date(string="LFD")
     tf_cutoff_date = fields.Date(string="Cutoff")
-    tf_ssl = fields.Char(string="SSL")
+    tf_ssl = fields.Selection(SSL_SELECTION, string="SSL")
     tf_container_type = fields.Char(string="Type")
     tf_chassis_no = fields.Char(string="Chassis #")
     tf_pubk_no = fields.Char(string="PU/BK #")
@@ -60,6 +66,13 @@ class StockLot(models.Model):
         ],
         string="Import/Export",
     )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        return super().create([normalize_tf_container_selection_values(dict(vals)) for vals in vals_list])
+
+    def write(self, vals):
+        return super().write(normalize_tf_container_selection_values(dict(vals)))
 
     @api.constrains("tf_container_lot_id")
     def _check_tf_container_lot_id(self):

@@ -107,7 +107,9 @@
                         </group>
                     </group>
                     <group string="Sales Order Details">
-                        <field name="tf_address_note" widget="text" readonly="1"/>
+                        <field name="tf_shipper_note" widget="text" readonly="1"/>
+                        <field name="tf_consignee_note" widget="text" readonly="1"/>
+                        <field name="tf_address_note" widget="text" readonly="1" invisible="1"/>
                     </group>
                     <group string="Container Details">
                         <field name="tf_origin" readonly="1"/>
