@@ -27,6 +27,7 @@ class SaleOrderLine(models.Model):
     def action_open_tf_serial_wizard(self):
         action = super().action_open_tf_serial_wizard()
         self.ensure_one()
+        action["context"] = dict(action.get("context", {}), dialog_size="extra-large")
         if self.product_id.product_tmpl_id.tf_is_container:
             container_view = self.env.ref("tf_container_tracking.view_tf_sale_serial_wizard_form_container")
             action["view_id"] = container_view.id

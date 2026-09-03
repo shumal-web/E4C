@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "TF Container Tracking",
-    "version": "19.0.2.12.0",
+    "version": "19.0.2.13.0",
     "category": "Inventory/Sales",
     "summary": "Container serial planning, piece-to-container assignment, and tracking dashboard.",
     "author": "E4C",

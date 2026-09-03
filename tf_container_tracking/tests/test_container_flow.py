@@ -363,6 +363,34 @@ class TestContainerFlow(TransactionCase):
         qty_field = form_arch.xpath("//field[@name='qty']")[0]
         self.assertEqual(qty_field.get("readonly"), "0")
 
+    def test_container_serial_wizard_prioritizes_origin_ssl_columns(self):
+        partner = self._create_partner("Container Wizard UI Partner")
+        container_product = self._create_product("Container Wizard UI Container", is_container=True)
+        sale_order = self.env["sale.order"].create({"partner_id": partner.id})
+        container_line = self._create_so_line(sale_order, container_product, 2.0)
+
+        action = container_line.action_open_tf_serial_wizard()
+        container_view = self.env.ref("tf_container_tracking.view_tf_sale_serial_wizard_form_container")
+        self.assertEqual(action["context"]["dialog_size"], "extra-large")
+        self.assertEqual(action["view_id"], container_view.id)
+
+        form_view = self.env["tf.sale.serial.wizard"].get_view(
+            view_id=container_view.id,
+            view_type="form",
+        )
+        form_arch = etree.fromstring(form_view["arch"].encode())
+        line_fields = form_arch.xpath("//field[@name='line_ids']/list/field[@name]")
+        field_names = [field.get("name") for field in line_fields]
+        sequence_field = form_arch.xpath("//field[@name='line_ids']/list/field[@name='sequence']")[0]
+
+        self.assertEqual(sequence_field.get("column_invisible"), "1")
+        self.assertEqual(
+            field_names[:5],
+            ["plan_id", "sequence", "serial_name", "tf_container_number", "tf_port_to_destuff"],
+        )
+        self.assertLess(field_names.index("tf_ssl"), field_names.index("tf_internal_status"))
+        self.assertLess(field_names.index("tf_ssl"), field_names.index("tf_eta"))
+
     def test_serial_wizard_converts_cm_to_inches(self):
         partner = self._create_partner("Dimension Conversion Partner")
         product = self._create_product("Dimension Conversion Case")

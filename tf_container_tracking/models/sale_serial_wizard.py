@@ -51,6 +51,22 @@ class TfSaleSerialWizard(models.TransientModel):
     def _tf_cm_to_inches(self, value):
         return round((value or 0.0) / 2.54, 2)
 
+    def _tf_reopen_wizard_action(self):
+        self.ensure_one()
+        action = {
+            "type": "ir.actions.act_window",
+            "res_model": "tf.sale.serial.wizard",
+            "res_id": self.id,
+            "view_mode": "form",
+            "target": "new",
+            "context": {"dialog_size": "extra-large"},
+        }
+        if self.tf_is_container_product:
+            container_view = self.env.ref("tf_container_tracking.view_tf_sale_serial_wizard_form_container")
+            action["view_id"] = container_view.id
+            action["views"] = [(container_view.id, "form")]
+        return action
+
     def action_tf_convert_cm_to_inches(self):
         self.ensure_one()
         converted = False
@@ -76,13 +92,7 @@ class TfSaleSerialWizard(models.TransientModel):
         if not converted:
             raise UserError(_("No dimensions with Dim Unit = cm were found to convert."))
 
-        return {
-            "type": "ir.actions.act_window",
-            "res_model": "tf.sale.serial.wizard",
-            "res_id": self.id,
-            "view_mode": "form",
-            "target": "new",
-        }
+        return self._tf_reopen_wizard_action()
 
     @api.depends("order_line_id.order_id.order_line.tf_serial_plan_ids.tf_is_container_product")
     def _compute_tf_has_container_plans(self):
@@ -331,16 +341,12 @@ class TfSaleSerialWizard(models.TransientModel):
                     )
                 ]
 
-            return {
-                "type": "ir.actions.act_window",
-                "res_model": "tf.sale.serial.wizard",
-                "res_id": self.id,
-                "view_mode": "form",
-                "target": "new",
-            }
+            return self._tf_reopen_wizard_action()
 
         if not self.tf_is_container_product:
-            return super().action_generate_serials()
+            action = super().action_generate_serials()
+            action["context"] = dict(action.get("context", {}), dialog_size="extra-large")
+            return action
 
         if self.product_id.tracking != "serial":
             raise UserError(_("This product is not tracked by unique serial number."))
@@ -369,13 +375,7 @@ class TfSaleSerialWizard(models.TransientModel):
                 )
             ]
 
-        return {
-            "type": "ir.actions.act_window",
-            "res_model": "tf.sale.serial.wizard",
-            "res_id": self.id,
-            "view_mode": "form",
-            "target": "new",
-        }
+        return self._tf_reopen_wizard_action()
 
     def action_auto_assign_containers(self):
         self.ensure_one()
@@ -400,13 +400,7 @@ class TfSaleSerialWizard(models.TransientModel):
             total_cases = len(container_lines)
             for case_index, line in enumerate(container_lines, start=1):
                 line.serial_name = self._tf_case_serial_seed(container_index, case_index, total_cases)
-        return {
-            "type": "ir.actions.act_window",
-            "res_model": "tf.sale.serial.wizard",
-            "res_id": self.id,
-            "view_mode": "form",
-            "target": "new",
-        }
+        return self._tf_reopen_wizard_action()
 
     def action_assign(self):
         self.ensure_one()
@@ -451,13 +445,7 @@ class TfSaleSerialWizard(models.TransientModel):
                 line_index += 1
 
         self.write({"line_ids": [(5, 0, 0)] + new_commands})
-        return {
-            "type": "ir.actions.act_window",
-            "res_model": "tf.sale.serial.wizard",
-            "res_id": self.id,
-            "view_mode": "form",
-            "target": "new",
-        }
+        return self._tf_reopen_wizard_action()
 
     def action_apply(self):
         self.ensure_one()

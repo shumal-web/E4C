@@ -84,21 +84,21 @@
                 <field name="line_ids">
                     <list editable="bottom">
                         <field name="plan_id" column_invisible="1"/>
-                        <field name="sequence"/>
+                        <field name="sequence" column_invisible="1"/>
                         <field name="serial_name"/>
                         <field name="tf_container_number"/>
-                        <field name="tf_internal_status"/>
                         <field name="tf_port_to_destuff"/>
+                        <field name="tf_ssl"/>
+                        <field name="tf_internal_status"/>
                         <field name="tf_container_status"/>
-                        <field name="tf_container_location"/>
                         <field name="tf_eta"/>
                         <field name="tf_lfd"/>
                         <field name="tf_cutoff_date"/>
-                        <field name="tf_ssl"/>
                         <field name="tf_container_type"/>
                         <field name="tf_pubk_no"/>
                         <field name="tf_weight"/>
                         <field name="tf_weight_unit"/>
+                        <field name="tf_container_location"/>
                         <field name="tf_import_export"/>
                     </list>
                 </field>
