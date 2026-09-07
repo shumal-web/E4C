@@ -155,6 +155,32 @@ class TfSaleSerialPlan(models.Model):
         index=True,
         tracking=True,
     )
+    tf_shipper_partner_id = fields.Many2one(
+        "res.partner",
+        string="Shipper Address",
+        related="order_id.tf_shipper_partner_id",
+        store=True,
+        readonly=True,
+    )
+    tf_shipper_note = fields.Text(
+        string="Shipper",
+        related="order_id.tf_shipper_note",
+        store=True,
+        readonly=True,
+    )
+    tf_consignee_partner_id = fields.Many2one(
+        "res.partner",
+        string="Consignee Address",
+        related="order_id.tf_consignee_partner_id",
+        store=True,
+        readonly=True,
+    )
+    tf_consignee_note = fields.Text(
+        string="Consignee",
+        related="order_id.tf_consignee_note",
+        store=True,
+        readonly=True,
+    )
     tf_eta_overdue = fields.Boolean(compute="_compute_tf_overdue_dates")
     tf_lfd_overdue = fields.Boolean(compute="_compute_tf_overdue_dates")
 

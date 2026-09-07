@@ -54,8 +54,8 @@ class TfDispatchTicket(models.Model):
             ("delivery_leg_1", "Delivery Leg 1"),
             ("delivery_leg_2", "Delivery Leg 2"),
             ("return_leg", "Return Dispatch"),
-            ("export_case_leg_1", "Case Export Leg 1"),
-            ("export_case_leg_2", "Case Export Leg 2"),
+            ("export_case_leg_1", "Pieces Export Leg 1"),
+            ("export_case_leg_2", "Pieces Export Leg 2"),
             ("export_container_leg_1", "Container Export Leg 1"),
             ("export_container_leg_2", "Container Export Leg 2"),
             ("export_container_leg_3", "Container Export Leg 3"),
@@ -142,9 +142,21 @@ class TfDispatchTicket(models.Model):
         related="sale_order_id.tf_address_note",
         readonly=True,
     )
+    tf_shipper_partner_id = fields.Many2one(
+        "res.partner",
+        string="Shipper Address",
+        related="sale_order_id.tf_shipper_partner_id",
+        readonly=True,
+    )
     tf_shipper_note = fields.Text(
         string="Shipper",
         related="sale_order_id.tf_shipper_note",
+        readonly=True,
+    )
+    tf_consignee_partner_id = fields.Many2one(
+        "res.partner",
+        string="Consignee Address",
+        related="sale_order_id.tf_consignee_partner_id",
         readonly=True,
     )
     tf_consignee_note = fields.Text(
@@ -559,6 +571,20 @@ class TfSaleSerialPlan(models.Model):
         if not candidate_lines:
             return False
 
+        linked_lines = candidate_lines.filtered(lambda line: line.tf_container_line_id == self.order_line_id)
+        if linked_lines:
+            assigned_lines = linked_lines.filtered(
+                lambda line: any(plan.tf_container_plan_id == self for plan in line.tf_serial_plan_ids)
+            )
+            if assigned_lines:
+                return assigned_lines.sorted(lambda line: line.sequence or line.id)[:1]
+
+            unplanned_lines = linked_lines.filtered(lambda line: not line.tf_serial_plan_ids)
+            if unplanned_lines:
+                return unplanned_lines.sorted(lambda line: line.sequence or line.id)[:1]
+
+            return linked_lines.sorted(lambda line: line.sequence or line.id)[:1]
+
         assigned_lines = candidate_lines.filtered(
             lambda line: any(plan.tf_container_plan_id == self for plan in line.tf_serial_plan_ids)
         )
@@ -808,7 +834,7 @@ class TfSaleSerialPlan(models.Model):
             assignment_action = self._tf_open_assignment_wizard()
             if assignment_action:
                 return assignment_action
-            raise UserError(_("No case/piece serial lines are assigned to this container."))
+            raise UserError(_("No piece serial lines are assigned to this container."))
         if self.tf_dispatch_progress == "not_dispatched":
             super(TfSaleSerialPlan, self.sudo().with_context(mail_notrack=True)).write({"tf_dispatch_progress": "delivery"})
         return receive_action

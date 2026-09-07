@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-from odoo import api, fields, models
+from odoo import _, api, fields, models
+from odoo.exceptions import AccessError
 
 
 class ResPartner(models.Model):
@@ -57,9 +58,22 @@ class ResPartner(models.Model):
             partner.tf_credit_available = (partner.tf_credit_limit or 0.0) - used
             partner.tf_credit_over_limit = bool(partner.tf_credit_limit and used > partner.tf_credit_limit)
 
+    def _check_tf_credit_accounting_access(self):
+        if self.env.su or self.env.user.has_group("account.group_account_invoice"):
+            return
+        raise AccessError(_("Only accounting users can modify E4C credit control."))
+
+    def write(self, vals):
+        if "tf_credit_limit" in vals:
+            self._check_tf_credit_accounting_access()
+            if set(vals) == {"tf_credit_limit"} and not self.env.su:
+                return super(ResPartner, self.sudo()).write(vals)
+        return super().write(vals)
+
     def action_tf_clear_credit_now(self):
+        self._check_tf_credit_accounting_access()
         SaleOrder = self.env["sale.order"]
         for partner in self:
             orders = SaleOrder.search(partner._tf_credit_order_domain())
-            orders.action_tf_clear_credit()
+            orders.sudo().action_tf_clear_credit()
         return True

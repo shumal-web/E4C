@@ -4,6 +4,14 @@
         <field name="name">Operations</field>
     </record>
 
+    <record id="stock.in_picking" model="ir.ui.menu">
+        <field name="name">Receiving</field>
+    </record>
+
+    <record id="stock.action_picking_tree_incoming" model="ir.actions.act_window">
+        <field name="name">Receiving</field>
+    </record>
+
     <record id="stock.menu_action_inventory_tree" model="ir.ui.menu">
         <field name="active" eval="False"/>
         <field name="group_ids" eval="[(6, 0, [ref('base.group_no_one')])]"/>

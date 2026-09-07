@@ -33,8 +33,8 @@ class StockPicking(models.Model):
         [
             ("import_receipt", "Import Receipt"),
             ("import_truck_out", "Import Truck Out"),
-            ("case_export_leg_1", "Case Export Leg 1"),
-            ("case_export_leg_2", "Case Export Leg 2"),
+            ("case_export_leg_1", "Pieces Export Leg 1"),
+            ("case_export_leg_2", "Pieces Export Leg 2"),
             ("container_export_leg_3", "Container Export Leg 3"),
             ("direct_container_client", "Direct Container to Client"),
         ],
@@ -47,9 +47,21 @@ class StockPicking(models.Model):
         related="tf_sale_order_id.tf_address_note",
         readonly=True,
     )
+    tf_shipper_partner_id = fields.Many2one(
+        "res.partner",
+        string="Shipper Address",
+        related="tf_sale_order_id.tf_shipper_partner_id",
+        readonly=True,
+    )
     tf_shipper_note = fields.Text(
         string="Shipper",
         related="tf_sale_order_id.tf_shipper_note",
+        readonly=True,
+    )
+    tf_consignee_partner_id = fields.Many2one(
+        "res.partner",
+        string="Consignee Address",
+        related="tf_sale_order_id.tf_consignee_partner_id",
         readonly=True,
     )
     tf_consignee_note = fields.Text(
@@ -92,7 +104,7 @@ class StockPicking(models.Model):
             lambda p: (p.sequence, p.id)
         )
         if not piece_plans:
-            raise UserError("No case/piece serial lines are assigned to this container.")
+            raise UserError("No piece serial lines are assigned to this container.")
         return piece_plans
 
     @api.model

@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
+from copy import deepcopy
 from datetime import timedelta
 
 from odoo import _, api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import AccessError, UserError
 
 
 class SaleOrder(models.Model):
@@ -41,8 +42,20 @@ class SaleOrder(models.Model):
     tf_address_note = fields.Text(
         string="Address",
     )
+    tf_shipper_partner_id = fields.Many2one(
+        "res.partner",
+        string="Shipper Address",
+        tracking=True,
+        help="Saved shipper/contact address used for dispatch and printouts.",
+    )
     tf_shipper_note = fields.Text(
         string="Shipper",
+    )
+    tf_consignee_partner_id = fields.Many2one(
+        "res.partner",
+        string="Consignee Address",
+        tracking=True,
+        help="Saved consignee/contact address used for dispatch and printouts.",
     )
     tf_consignee_note = fields.Text(
         string="Consignee",
@@ -214,12 +227,27 @@ class SaleOrder(models.Model):
         self._tf_schedule_credit_clear_for_invoiced()
         return invoices
 
+    @api.depends_context("lang")
+    @api.depends("order_line.price_subtotal", "currency_id", "company_id", "payment_term_id")
+    def _compute_tax_totals(self):
+        super()._compute_tax_totals()
+        for order in self:
+            if not isinstance(order.tax_totals, dict):
+                continue
+            tax_totals = deepcopy(order.tax_totals)
+            for subtotal in tax_totals.get("subtotals", []):
+                subtotal["tax_groups"] = []
+            tax_totals["has_tax_groups"] = False
+            order.tax_totals = tax_totals
+
     def _tf_get_template_default_vals(self, template, vals=None):
         vals = vals or {}
         defaults = {}
         if template and template.exists():
             template_fields = {
                 "tf_shipment_type": "tf_shipment_type",
+                "tf_shipper_partner_id": "tf_shipper_partner_id",
+                "tf_consignee_partner_id": "tf_consignee_partner_id",
                 "tf_address_note": "tf_address_note",
                 "tf_shipper_note": "tf_shipper_note",
                 "tf_consignee_note": "tf_consignee_note",
@@ -228,10 +256,45 @@ class SaleOrder(models.Model):
             for order_field, template_field in template_fields.items():
                 value = template[template_field]
                 if order_field not in vals and value:
+                    if template._fields[template_field].type == "many2one":
+                        value = value.id
                     defaults[order_field] = value
+            if (
+                "tf_shipper_note" not in vals
+                and "tf_shipper_note" not in defaults
+                and template.tf_shipper_partner_id
+            ):
+                defaults["tf_shipper_note"] = self._tf_partner_address_text(template.tf_shipper_partner_id)
+            if (
+                "tf_consignee_note" not in vals
+                and "tf_consignee_note" not in defaults
+                and template.tf_consignee_partner_id
+            ):
+                defaults["tf_consignee_note"] = self._tf_partner_address_text(template.tf_consignee_partner_id)
             if "tf_consignee_note" not in vals and "tf_consignee_note" not in defaults and template.tf_address_note:
                 defaults["tf_consignee_note"] = template.tf_address_note
         return defaults
+
+    def _tf_partner_address_text(self, partner):
+        if not partner:
+            return False
+        values = [partner.display_name]
+        address = partner._display_address(without_company=True)
+        if address:
+            values.append(address)
+        return "\n".join(dict.fromkeys([value for value in values if value]))
+
+    @api.onchange("tf_shipper_partner_id")
+    def _onchange_tf_shipper_partner_id(self):
+        for order in self:
+            if order.tf_shipper_partner_id:
+                order.tf_shipper_note = order._tf_partner_address_text(order.tf_shipper_partner_id)
+
+    @api.onchange("tf_consignee_partner_id")
+    def _onchange_tf_consignee_partner_id(self):
+        for order in self:
+            if order.tf_consignee_partner_id:
+                order.tf_consignee_note = order._tf_partner_address_text(order.tf_consignee_partner_id)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -240,6 +303,14 @@ class SaleOrder(models.Model):
             if template_id:
                 template = self.env["sale.order.template"].browse(template_id)
                 vals.update(self._tf_get_template_default_vals(template, vals))
+            if vals.get("tf_shipper_partner_id") and not vals.get("tf_shipper_note"):
+                vals["tf_shipper_note"] = self._tf_partner_address_text(
+                    self.env["res.partner"].browse(vals["tf_shipper_partner_id"])
+                )
+            if vals.get("tf_consignee_partner_id") and not vals.get("tf_consignee_note"):
+                vals["tf_consignee_note"] = self._tf_partner_address_text(
+                    self.env["res.partner"].browse(vals["tf_consignee_partner_id"])
+                )
             if vals.get("partner_shipping_id") and not vals.get("tf_dispatch_contact_id"):
                 vals["tf_dispatch_contact_id"] = vals["partner_shipping_id"]
             elif vals.get("partner_id") and not vals.get("tf_dispatch_contact_id"):
@@ -258,6 +329,20 @@ class SaleOrder(models.Model):
         if vals.get("sale_order_template_id"):
             template = self.env["sale.order.template"].browse(vals["sale_order_template_id"])
             vals = dict(vals, **self._tf_get_template_default_vals(template, vals))
+        if vals.get("tf_shipper_partner_id") and "tf_shipper_note" not in vals:
+            vals = dict(
+                vals,
+                tf_shipper_note=self._tf_partner_address_text(
+                    self.env["res.partner"].browse(vals["tf_shipper_partner_id"])
+                ),
+            )
+        if vals.get("tf_consignee_partner_id") and "tf_consignee_note" not in vals:
+            vals = dict(
+                vals,
+                tf_consignee_note=self._tf_partner_address_text(
+                    self.env["res.partner"].browse(vals["tf_consignee_partner_id"])
+                ),
+            )
         if vals.get("partner_shipping_id") and "tf_dispatch_contact_id" not in vals:
             vals = dict(vals, tf_dispatch_contact_id=vals["partner_shipping_id"])
         return super().write(vals)
@@ -313,7 +398,7 @@ class SaleOrder(models.Model):
                 else:
                     missing = range(len(existing) + 1, target + 1)
                 for index in missing:
-                    seeded_name = order._tf_container_seed(index)
+                    seeded_name = line._tf_container_serial_seed(index)
                     product_template = line.product_id.product_tmpl_id
                     plan_model.create(
                         {
@@ -422,8 +507,8 @@ class SaleOrder(models.Model):
                     partner=order.partner_shipping_id or order.partner_id,
                     flow_kind="case_export_leg_2",
                 )
-                leg_1 = order._tf_create_order_dispatch_ticket("export_case_leg_1", _("Case Export Pickup Leg 1"))
-                leg_2 = order._tf_create_order_dispatch_ticket("export_case_leg_2", _("Case Export Pickup Leg 2"), location_note="Port")
+                leg_1 = order._tf_create_order_dispatch_ticket("export_case_leg_1", _("Pieces Export Pickup Leg 1"))
+                leg_2 = order._tf_create_order_dispatch_ticket("export_case_leg_2", _("Pieces Export Pickup Leg 2"), location_note="Port")
                 if not leg_1.receiving_picking_id:
                     leg_1.receiving_picking_id = incoming.id
                 if not leg_2.internal_transfer_id:
@@ -458,11 +543,14 @@ class SaleOrder(models.Model):
         return True
 
     def action_tf_clear_credit(self):
-        self.write({
+        if not (self.env.su or self.env.user.has_group("account.group_account_invoice")):
+            raise AccessError(_("Only accounting users can modify E4C credit control."))
+        cleared_by_id = self.env.user.id
+        self.sudo().write({
             "tf_credit_state": "cleared",
             "tf_credit_clear_date": False,
             "tf_credit_cleared_on": fields.Date.context_today(self),
-            "tf_credit_cleared_by_id": self.env.user.id,
+            "tf_credit_cleared_by_id": cleared_by_id,
         })
         return True
 

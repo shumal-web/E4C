@@ -9,6 +9,7 @@
                 <field name="tf_has_container_plans" invisible="1"/>
                 <field name="tf_requires_container" invisible="1"/>
                 <field name="tf_show_assign_workflow" invisible="1"/>
+                <field name="tf_allowed_container_plan_ids" invisible="1"/>
             </xpath>
 
             <xpath expr="//field[@name='qty']" position="attributes">
@@ -16,7 +17,7 @@
             </xpath>
 
             <xpath expr="//group" position="after">
-                <group string="Assign Cases to Containers" invisible="not tf_show_assign_workflow">
+                <group string="Assign Pieces to Containers" invisible="not tf_show_assign_workflow">
                     <group>
                         <field name="assign_line_ids">
                             <list editable="bottom" create="false" delete="false">
@@ -42,7 +43,7 @@
                 <field name="order_id" column_invisible="1"/>
                 <field name="tf_container_plan_id"
                        string="Container Number"
-                       domain="[('order_id', '=', parent.order_id), ('tf_is_container_product', '=', True)]"
+                       domain="[('id', 'in', parent.tf_allowed_container_plan_ids)]"
                        can_create="0"
                        can_write="0"
                        context="{'create': False}"

@@ -29,6 +29,32 @@ class StockLot(models.Model):
         store=True,
         readonly=True,
     )
+    tf_shipper_partner_id = fields.Many2one(
+        "res.partner",
+        string="Shipper Address",
+        related="tf_origin_sale_order_id.tf_shipper_partner_id",
+        store=True,
+        readonly=True,
+    )
+    tf_shipper_note = fields.Text(
+        string="Shipper",
+        related="tf_origin_sale_order_id.tf_shipper_note",
+        store=True,
+        readonly=True,
+    )
+    tf_consignee_partner_id = fields.Many2one(
+        "res.partner",
+        string="Consignee Address",
+        related="tf_origin_sale_order_id.tf_consignee_partner_id",
+        store=True,
+        readonly=True,
+    )
+    tf_consignee_note = fields.Text(
+        string="Consignee",
+        related="tf_origin_sale_order_id.tf_consignee_note",
+        store=True,
+        readonly=True,
+    )
 
     tf_is_container_lot = fields.Boolean(
         related="product_id.product_tmpl_id.tf_is_container",

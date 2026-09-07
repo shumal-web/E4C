@@ -33,6 +33,11 @@ class TfSaleSerialWizard(models.TransientModel):
         "wizard_id",
         string="Container Distribution",
     )
+    tf_allowed_container_plan_ids = fields.Many2many(
+        "tf.sale.serial.plan",
+        compute="_compute_tf_allowed_container_plan_ids",
+        string="Allowed Container Numbers",
+    )
     tf_assign_length = fields.Float(string="Length")
     tf_assign_width = fields.Float(string="Width")
     tf_assign_height = fields.Float(string="Height")
@@ -94,12 +99,44 @@ class TfSaleSerialWizard(models.TransientModel):
 
         return self._tf_reopen_wizard_action()
 
-    @api.depends("order_line_id.order_id.order_line.tf_serial_plan_ids.tf_is_container_product")
+    def _tf_container_plans_for_assignment(self):
+        self.ensure_one()
+        if self.order_line_id:
+            return self.order_line_id._tf_container_plans_for_assignment()
+        return self.env["tf.sale.serial.plan"]
+
+    def _tf_container_index_map(self):
+        self.ensure_one()
+        container_plans = self.order_id.order_line.mapped("tf_serial_plan_ids").filtered(
+            "tf_is_container_product"
+        ).sorted(lambda plan: (plan.order_line_id.sequence, plan.order_line_id.id, plan.sequence, plan.id))
+        return {plan.id: index for index, plan in enumerate(container_plans, start=1)}
+
+    @api.depends(
+        "order_line_id",
+        "order_line_id.tf_container_line_id",
+        "order_line_id.order_id.order_line.tf_serial_plan_ids.tf_is_container_product",
+    )
+    def _compute_tf_allowed_container_plan_ids(self):
+        for wizard in self:
+            wizard.tf_allowed_container_plan_ids = (
+                wizard._tf_container_plans_for_assignment()
+                if wizard.order_line_id
+                else self.env["tf.sale.serial.plan"]
+            )
+
+    @api.depends(
+        "order_line_id",
+        "order_line_id.tf_container_line_id",
+        "order_line_id.order_id.order_line.tf_serial_plan_ids.tf_is_container_product",
+    )
     def _compute_tf_has_container_plans(self):
         for wizard in self:
-            order = wizard.order_line_id.order_id
-            container_plans = order.order_line.mapped("tf_serial_plan_ids").filtered("tf_is_container_product") if order else self.env["tf.sale.serial.plan"]
-            wizard.tf_has_container_plans = bool(container_plans)
+            wizard.tf_has_container_plans = (
+                bool(wizard._tf_container_plans_for_assignment())
+                if wizard.order_line_id
+                else False
+            )
 
     @api.depends("tf_is_container_product", "tf_requires_container", "tf_has_container_plans")
     def _compute_tf_show_assign_workflow(self):
@@ -111,8 +148,11 @@ class TfSaleSerialWizard(models.TransientModel):
             )
 
     def _tf_container_seed(self, index, order_name=None):
+        self.ensure_one()
+        if self.order_line_id:
+            return self.order_line_id._tf_container_serial_seed(index)
         if order_name is None:
-            order_name = self.order_id.name if self else "SO"
+            order_name = self.order_id.name
         order_name = (order_name or "SO").replace("/", "-").replace(" ", "")
         return f"{order_name}-C{index:02d}"
 
@@ -126,8 +166,7 @@ class TfSaleSerialWizard(models.TransientModel):
         if self.tf_is_container_product or not self.tf_requires_container:
             return self.env["tf.sale.serial.wizard.assign.line"]
 
-        container_plans = self.order_id.order_line.mapped("tf_serial_plan_ids").filtered("tf_is_container_product")
-        container_plans = container_plans.sorted(lambda p: (p.sequence, p.id))
+        container_plans = self._tf_container_plans_for_assignment()
         if not container_plans:
             self.assign_line_ids = [(5, 0, 0)]
             return self.assign_line_ids
@@ -170,8 +209,7 @@ class TfSaleSerialWizard(models.TransientModel):
         if self.tf_is_container_product or not self.tf_requires_container:
             return self.env["tf.sale.serial.wizard.assign.line"]
 
-        container_plans = self.order_id.order_line.mapped("tf_serial_plan_ids").filtered("tf_is_container_product")
-        container_plans = container_plans.sorted(lambda p: (p.sequence, p.id))
+        container_plans = self._tf_container_plans_for_assignment()
         if not container_plans:
             return self.env["tf.sale.serial.wizard.assign.line"]
 
@@ -223,7 +261,7 @@ class TfSaleSerialWizard(models.TransientModel):
         if not line_commands and is_container and sol.product_id.tracking == "serial":
             target = int(sol.product_uom_qty or 0)
             for index in range(1, target + 1):
-                seeded_name = self._tf_container_seed(index, order_name=sol.order_id.name)
+                seeded_name = sol._tf_container_serial_seed(index)
                 line_commands.append((0, 0, {
                     "sequence": index * 10,
                     "serial_name": seeded_name,
@@ -241,8 +279,7 @@ class TfSaleSerialWizard(models.TransientModel):
         serial_map = {plan.serial_name: plan for plan in existing_plans if plan.serial_name}
         assign_commands = []
         if allow_blank_serial:
-            container_plans = sol.order_id.order_line.mapped("tf_serial_plan_ids").filtered("tf_is_container_product")
-            container_plans = container_plans.sorted(lambda p: (p.sequence, p.id))
+            container_plans = sol._tf_container_plans_for_assignment()
             piece_counts = {}
             for plan in existing_plans.filtered(lambda p: p.tf_container_plan_id):
                 piece_counts.setdefault(plan.tf_container_plan_id.id, 0)
@@ -273,7 +310,7 @@ class TfSaleSerialWizard(models.TransientModel):
             plan = serial_map.get(vals.get("serial_name")) or sequence_map.get(vals.get("sequence"))
 
             if is_container and index > existing_count:
-                seeded_name = self._tf_container_seed(index, order_name=sol.order_id.name)
+                seeded_name = sol._tf_container_serial_seed(index)
                 vals["serial_name"] = seeded_name
                 vals.setdefault("tf_container_number", seeded_name)
                 vals.setdefault("tf_internal_status", "for_approval")
@@ -357,7 +394,7 @@ class TfSaleSerialWizard(models.TransientModel):
             raise UserError(_("Quantity must be > 0 to generate serials."))
 
         for index in range(existing + 1, target + 1):
-            seeded_name = self._tf_container_seed(index, order_name=self.order_id.name)
+            seeded_name = self.order_line_id._tf_container_serial_seed(index)
             self.line_ids = [
                 (
                     0,
@@ -381,8 +418,7 @@ class TfSaleSerialWizard(models.TransientModel):
         self.ensure_one()
         if self.tf_is_container_product:
             return False
-        container_plans = self.order_id.order_line.mapped("tf_serial_plan_ids").filtered("tf_is_container_product")
-        container_plans = container_plans.sorted(lambda p: (p.sequence, p.id))
+        container_plans = self._tf_container_plans_for_assignment()
         if not container_plans:
             raise UserError(_("No container serials found in this order."))
         grouped_lines = {}
@@ -393,11 +429,13 @@ class TfSaleSerialWizard(models.TransientModel):
             grouped_lines.setdefault(container_plan.id, self.env["tf.sale.serial.wizard.line"])
             grouped_lines[container_plan.id] |= line
 
-        for container_index, container_plan in enumerate(container_plans, start=1):
+        container_index_by_id = self._tf_container_index_map()
+        for container_plan in container_plans:
             container_lines = grouped_lines.get(container_plan.id, self.env["tf.sale.serial.wizard.line"]).sorted(
                 lambda l: (l.sequence, l.id)
             )
             total_cases = len(container_lines)
+            container_index = container_index_by_id.get(container_plan.id, 1)
             for case_index, line in enumerate(container_lines, start=1):
                 line.serial_name = self._tf_case_serial_seed(container_index, case_index, total_cases)
         return self._tf_reopen_wizard_action()
@@ -412,18 +450,20 @@ class TfSaleSerialWizard(models.TransientModel):
             raise UserError(_("No container serials are available for assignment."))
 
         target = int(self.qty or 0)
-        total_cases = sum(int(line.case_qty or 0) for line in container_lines)
-        if total_cases != target:
+        total_pieces = sum(int(line.case_qty or 0) for line in container_lines)
+        if total_pieces != target:
             raise UserError(
-                _("Total assigned case quantity must match the product quantity (%s). Current total: %s")
-                % (target, total_cases)
+                _("Total assigned piece quantity must match the product quantity (%s). Current total: %s")
+                % (target, total_pieces)
             )
 
         existing_plans = self.order_line_id.tf_serial_plan_ids.sorted(lambda p: (p.sequence, p.id))
         new_commands = []
         line_index = 0
-        for container_index, assign_line in enumerate(container_lines, start=1):
+        container_index_by_id = self._tf_container_index_map()
+        for assign_line in container_lines:
             total_cases = int(assign_line.case_qty or 0)
+            container_index = container_index_by_id.get(assign_line.container_plan_id.id, 1)
             for case_index in range(1, total_cases + 1):
                 plan = existing_plans[line_index] if line_index < len(existing_plans) else False
                 vals = {
@@ -457,11 +497,11 @@ class TfSaleSerialWizard(models.TransientModel):
         if len(wizard_lines) != target:
             raise UserError(_("You must have exactly %s serial lines (same as quantity).") % target)
 
-        container_plans_in_order = self.order_id.order_line.mapped("tf_serial_plan_ids").filtered("tf_is_container_product")
+        container_plans_for_line = self._tf_container_plans_for_assignment()
         requires_container = bool(
             not self.tf_is_container_product
             and self.tf_requires_container
-            and container_plans_in_order
+            and container_plans_for_line
         )
 
         missing_container = []
@@ -474,6 +514,8 @@ class TfSaleSerialWizard(models.TransientModel):
                     raise UserError(_("Container serial must belong to the same sales order."))
                 if not line.tf_container_plan_id.tf_is_container_product:
                     raise UserError(_("Selected container serial must come from a container product line."))
+                if container_plans_for_line and line.tf_container_plan_id not in container_plans_for_line:
+                    raise UserError(_("Selected container number is not linked to this piece line."))
             if requires_container and not line.tf_container_plan_id:
                 missing_container.append(str(line.sequence))
 
@@ -631,7 +673,7 @@ class TfSaleSerialWizardAssignLine(models.TransientModel):
         string="Container Number",
         domain="[('order_id', '=', wizard_id.order_id), ('tf_is_container_product', '=', True)]",
     )
-    case_qty = fields.Integer(string="# of Case", default=0)
+    case_qty = fields.Integer(string="# of Pieces", default=0)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -639,8 +681,7 @@ class TfSaleSerialWizardAssignLine(models.TransientModel):
         for vals in vals_list:
             if vals.get("wizard_id") and not vals.get("container_plan_id"):
                 wizard = self.env["tf.sale.serial.wizard"].browse(vals["wizard_id"])
-                container_plans = wizard.order_id.order_line.mapped("tf_serial_plan_ids").filtered("tf_is_container_product")
-                container_plans = container_plans.sorted(lambda p: (p.sequence, p.id))
+                container_plans = wizard._tf_container_plans_for_assignment()
                 sequence = vals.get("sequence") or 10
                 index = max(int(sequence / 10) - 1, 0)
                 if len(container_plans) > index:

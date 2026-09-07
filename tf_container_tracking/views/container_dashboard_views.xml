@@ -151,6 +151,16 @@
                             <field name="tf_weight_unit"/>
                         </group>
                     </group>
+                    <group string="Sales Order Address Details">
+                        <group>
+                            <field name="tf_shipper_partner_id" readonly="1"/>
+                            <field name="tf_shipper_note" widget="text" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="tf_consignee_partner_id" readonly="1"/>
+                            <field name="tf_consignee_note" widget="text" readonly="1"/>
+                        </group>
+                    </group>
                 </sheet>
                 <chatter open_attachments="True"/>
             </form>

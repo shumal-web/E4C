@@ -19,7 +19,9 @@
                 <field name="tf_customer_reference" readonly="1"/>
                 <field name="tf_container_number" readonly="1"/>
                 <field name="tf_flow_kind" readonly="1"/>
+                <field name="tf_shipper_partner_id" readonly="1"/>
                 <field name="tf_shipper_note" widget="text" readonly="1"/>
+                <field name="tf_consignee_partner_id" readonly="1"/>
                 <field name="tf_consignee_note" widget="text" readonly="1"/>
                 <field name="tf_address_note" widget="text" readonly="1" invisible="1"/>
             </xpath>
@@ -39,6 +41,17 @@
                 <field name="tf_customer_reference" optional="hide"/>
                 <field name="tf_container_number" optional="show"/>
                 <field name="tf_flow_kind" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_picking_internal_search_tf_receiving_label" model="ir.ui.view">
+        <field name="name">stock.picking.search.tf.receiving.label</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_internal_search"/>
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='reception']" position="attributes">
+                <attribute name="string">Receiving</attribute>
             </xpath>
         </field>
     </record>
