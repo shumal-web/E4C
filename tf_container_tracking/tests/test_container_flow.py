@@ -157,12 +157,11 @@ class TestContainerFlow(TransactionCase):
         self.assertIn("tf_special_instructions", form_view["arch"])
         self.assertIn("client_order_ref", form_view["arch"])
         self.assertIn('open_attachments="True"', form_view["arch"])
-        sale_credit_view_arch = etree.fromstring(
-            self.env.ref("tf_container_tracking.view_order_form_tf_container_tracking_link").arch_db.encode()
+        sale_arch = etree.fromstring(form_view["arch"].encode())
+        self.assertFalse(
+            sale_arch.xpath("//page[@name='tf_e4c_credit_control']"),
+            "E4C credit control must not be shown on Sales Orders, even for administrators.",
         )
-        sale_credit_pages = sale_credit_view_arch.xpath("//page[@name='tf_e4c_credit_control']")
-        self.assertEqual(len(sale_credit_pages), 1)
-        self.assertEqual(sale_credit_pages[0].get("groups"), "account.group_account_invoice")
 
         sale_order_fields = form_view["models"]["sale.order"]
         self.assertIn("tf_container_tracking_count", sale_order_fields)
@@ -175,8 +174,6 @@ class TestContainerFlow(TransactionCase):
         self.assertIn("tf_consignee_partner_id", sale_order_fields)
         self.assertIn("tf_consignee_note", sale_order_fields)
         self.assertIn("tf_special_instructions", sale_order_fields)
-        self.assertIn("tf_credit_state", sale_order_fields)
-        self.assertIn("tf_partner_credit_limit", sale_order_fields)
 
         partner_view = self.env["res.partner"].get_view(
             view_id=self.env.ref("base.view_partner_form").id,
@@ -245,7 +242,14 @@ class TestContainerFlow(TransactionCase):
         self.assertEqual(payment_term_field.get("invisible"), "1")
         self.assertTrue(customer_ref_main)
         self.assertEqual(customer_ref_other[0].get("invisible"), "1")
-        self.assertTrue(form_arch.xpath("//group[@name='partner_details']//field[@name='tag_ids']"))
+        right_header_fields = [
+            field.get("name")
+            for field in form_arch.xpath("//field[@name='date_order']/following-sibling::field")
+        ]
+        self.assertIn("tf_shipment_type", right_header_fields)
+        self.assertIn("tf_dispatch_contact_id", right_header_fields)
+        self.assertIn("tag_ids", right_header_fields)
+        self.assertIn("tf_special_instructions", right_header_fields)
 
         template_view = self.env["sale.order.template"].get_view(
             view_id=self.env.ref("sale_management.sale_order_template_view_form").id,
@@ -909,11 +913,11 @@ class TestContainerFlow(TransactionCase):
         self.assertEqual(
             piece_plans.mapped("serial_name"),
             [
-                f"{sale_order.name}-1 1 of 3",
-                f"{sale_order.name}-1 2 of 3",
-                f"{sale_order.name}-1 3 of 3",
-                f"{sale_order.name}-2 1 of 2",
-                f"{sale_order.name}-2 2 of 2",
+                f"{sale_order.name}-C01-P01-of-03",
+                f"{sale_order.name}-C01-P02-of-03",
+                f"{sale_order.name}-C01-P03-of-03",
+                f"{sale_order.name}-C02-P01-of-02",
+                f"{sale_order.name}-C02-P02-of-02",
             ],
         )
         self.assertEqual([plan.tf_container_plan_id.id for plan in piece_plans[:3]], [container_plans[0].id] * 3)
@@ -976,14 +980,14 @@ class TestContainerFlow(TransactionCase):
         self.assertEqual(
             first_piece_plans.mapped("serial_name"),
             [
-                f"{sale_order.name}-1 1 of 1",
-                f"{sale_order.name}-2 1 of 2",
-                f"{sale_order.name}-2 2 of 2",
+                f"{sale_order.name}-C01-P01-of-01",
+                f"{sale_order.name}-C02-P01-of-02",
+                f"{sale_order.name}-C02-P02-of-02",
             ],
         )
         self.assertEqual(
             second_piece_plans.mapped("serial_name"),
-            [f"{sale_order.name}-3 1 of 2", f"{sale_order.name}-3 2 of 2"],
+            [f"{sale_order.name}-C03-P01-of-02", f"{sale_order.name}-C03-P02-of-02"],
         )
         self.assertEqual(first_piece_plans.mapped("tf_container_plan_id"), first_container_plans)
         self.assertEqual(second_piece_plans.mapped("tf_container_plan_id"), second_container_plans)
@@ -1123,16 +1127,16 @@ class TestContainerFlow(TransactionCase):
         self.assertEqual(
             serials,
             [
-                f"{sale_order.name}-1 1 of 5",
-                f"{sale_order.name}-1 2 of 5",
-                f"{sale_order.name}-1 3 of 5",
-                f"{sale_order.name}-1 4 of 5",
-                f"{sale_order.name}-1 5 of 5",
-                f"{sale_order.name}-2 1 of 2",
-                f"{sale_order.name}-2 2 of 2",
-                f"{sale_order.name}-3 1 of 3",
-                f"{sale_order.name}-3 2 of 3",
-                f"{sale_order.name}-3 3 of 3",
+                f"{sale_order.name}-C01-P01-of-05",
+                f"{sale_order.name}-C01-P02-of-05",
+                f"{sale_order.name}-C01-P03-of-05",
+                f"{sale_order.name}-C01-P04-of-05",
+                f"{sale_order.name}-C01-P05-of-05",
+                f"{sale_order.name}-C02-P01-of-02",
+                f"{sale_order.name}-C02-P02-of-02",
+                f"{sale_order.name}-C03-P01-of-03",
+                f"{sale_order.name}-C03-P02-of-03",
+                f"{sale_order.name}-C03-P03-of-03",
             ],
         )
 
@@ -1389,6 +1393,20 @@ class TestContainerFlow(TransactionCase):
         sale_order = self.env["sale.order"].create({"partner_id": partner.id})
         container_line = self._create_so_line(sale_order, container_product, 1.0)
         piece_line = self._create_so_line(sale_order, piece_product, 3.0)
+        warehouse = self.env["stock.warehouse"].search([("company_id", "=", self.env.company.id)], limit=1)
+        internal_type = self.env["stock.picking"]._tf_get_picking_type("internal", sale_order.company_id)
+        unrelated_stock_lots = self.env["stock.lot"]
+        for index, location in enumerate(
+            warehouse.lot_stock_id | internal_type.default_location_dest_id,
+            start=1,
+        ):
+            lot = self.env["stock.lot"].create({
+                "name": "Unselected Truck Out Lot %s" % index,
+                "product_id": piece_product.id,
+                "company_id": self.env.company.id,
+            })
+            self.env["stock.quant"]._update_available_quantity(piece_product, location, 1.0, lot_id=lot)
+            unrelated_stock_lots |= lot
 
         container_wizard = self._open_wizard(container_line)
         container_wizard.action_apply()
@@ -1419,10 +1437,12 @@ class TestContainerFlow(TransactionCase):
         transfer = dispatch.internal_transfer_id
         self.assertEqual(transfer.picking_type_code, "internal")
         self.assertEqual(set(transfer.move_line_ids.mapped("lot_id").ids), set(selected_lots.ids))
+        self.assertFalse(transfer.move_line_ids.filtered(lambda line: line.lot_id in unrelated_stock_lots))
 
         delivery = dispatch.delivery_order_id
         self.assertEqual(delivery.picking_type_code, "outgoing")
         self.assertEqual(set(delivery.move_line_ids.mapped("lot_id").ids), set(selected_lots.ids))
+        self.assertFalse(delivery.move_line_ids.filtered(lambda line: line.lot_id in unrelated_stock_lots))
 
         action_again = selected_lots.action_tf_truck_out_selected()
         self.assertEqual(action_again.get("res_id"), dispatch.id)

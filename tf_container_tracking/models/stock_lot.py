@@ -179,6 +179,13 @@ class StockLot(models.Model):
             "lots": lot_names,
         }
 
+    def _tf_clear_truck_out_auto_move_lines(self, picking):
+        """Remove Odoo auto-reservations before adding the selected serials."""
+        picking.do_unreserve()
+        auto_lines = picking.move_line_ids.filtered(lambda line: not line.tf_sale_serial_plan_id)
+        if auto_lines:
+            auto_lines.unlink()
+
     def _tf_create_truck_out_transfer(self, sale_orders, source_location, dest_location):
         sale_order = sale_orders[:1]
         picking_type = self.env["stock.picking"]._tf_get_picking_type("internal", sale_order.company_id)
@@ -232,6 +239,7 @@ class StockLot(models.Model):
             move_by_group[(product_id, container_plan_id)] = move
 
         picking.action_confirm()
+        self._tf_clear_truck_out_auto_move_lines(picking)
 
         for lot in self.sorted(lambda rec: rec.id):
             container_plan = lot_to_container_plan.get(lot.id)
@@ -329,6 +337,7 @@ class StockLot(models.Model):
             move_by_group[(product_id, container_plan_id)] = move
 
         picking.action_confirm()
+        self._tf_clear_truck_out_auto_move_lines(picking)
         for lot in self.sorted(lambda rec: rec.id):
             container_plan = lot_to_container_plan.get(lot.id)
             serial_plan = lot_to_serial_plan.get(lot.id)

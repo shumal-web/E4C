@@ -82,7 +82,7 @@ class TestE4CPrintouts(TransactionCase):
         self.case_plan = self.env["tf.sale.serial.plan"].create({
             "order_id": self.sale_order.id,
             "order_line_id": self.case_line.id,
-            "serial_name": "SOPRINT-1 1 of 1",
+            "serial_name": "SOPRINT-C01-P01-of-01",
             "tf_container_plan_id": self.container_plan.id,
             "tf_description": "Fragile Case",
             "tf_length": 10.0,
@@ -260,7 +260,7 @@ class TestE4CPrintouts(TransactionCase):
             ),
             "tf_e4c_printouts.report_e4c_dispatch_bol": (
                 "tf_e4c_printouts.action_report_e4c_dispatch_bol",
-                ["STRAIGHT BILL OF LADING", "SOPRINT-1 1 of 1", "Printout Shipper", "Printout Consignee", "Bill of Lading Terms"],
+                ["STRAIGHT BILL OF LADING", "SOPRINT-C01-P01-of-01", "Printout Shipper", "Printout Consignee", "Bill of Lading Terms"],
             ),
             "tf_e4c_printouts.report_e4c_dispatch_truck_out_sheet": (
                 "tf_e4c_printouts.action_report_e4c_dispatch_truck_out_sheet",

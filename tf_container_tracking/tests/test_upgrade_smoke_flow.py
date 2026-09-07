@@ -170,9 +170,9 @@ class TestUpgradeSmokeFlow(TransactionCase):
         })
         case_wizard.action_assign()
         expected_case_serials = [
-            f"{sale_order.name}-1 1 of 2",
-            f"{sale_order.name}-1 2 of 2",
-            f"{sale_order.name}-2 1 of 1",
+            f"{sale_order.name}-C01-P01-of-02",
+            f"{sale_order.name}-C01-P02-of-02",
+            f"{sale_order.name}-C02-P01-of-01",
         ]
         self.assertEqual(case_wizard.line_ids.sorted(lambda l: (l.sequence, l.id)).mapped("serial_name"), expected_case_serials)
         case_wizard.action_apply()

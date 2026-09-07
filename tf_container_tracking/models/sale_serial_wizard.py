@@ -156,10 +156,22 @@ class TfSaleSerialWizard(models.TransientModel):
         order_name = (order_name or "SO").replace("/", "-").replace(" ", "")
         return f"{order_name}-C{index:02d}"
 
-    def _tf_case_serial_seed(self, container_index, case_index, total_cases):
+    def _tf_case_serial_seed(self, container_plan, container_index, case_index, total_cases):
         self.ensure_one()
         order_name = (self.order_id.name or "SO").replace("/", "-").replace(" ", "")
-        return f"{order_name}-{container_index} {case_index} of {total_cases}"
+        fallback_container = f"C{container_index:02d}"
+        container_name = (
+            container_plan.tf_container_number
+            or container_plan.serial_name
+            or fallback_container
+        )
+        container_name = container_name.replace("/", "-").replace(" ", "")
+        serial_prefix = (
+            container_name
+            if container_name.startswith(f"{order_name}-")
+            else f"{order_name}-{container_name}"
+        )
+        return f"{serial_prefix}-P{case_index:02d}-of-{total_cases:02d}"
 
     def _tf_sync_assign_lines_from_order(self):
         self.ensure_one()
@@ -437,7 +449,7 @@ class TfSaleSerialWizard(models.TransientModel):
             total_cases = len(container_lines)
             container_index = container_index_by_id.get(container_plan.id, 1)
             for case_index, line in enumerate(container_lines, start=1):
-                line.serial_name = self._tf_case_serial_seed(container_index, case_index, total_cases)
+                line.serial_name = self._tf_case_serial_seed(container_plan, container_index, case_index, total_cases)
         return self._tf_reopen_wizard_action()
 
     def action_assign(self):
@@ -468,7 +480,12 @@ class TfSaleSerialWizard(models.TransientModel):
                 plan = existing_plans[line_index] if line_index < len(existing_plans) else False
                 vals = {
                     "sequence": (line_index + 1) * 10,
-                    "serial_name": self._tf_case_serial_seed(container_index, case_index, total_cases),
+                    "serial_name": self._tf_case_serial_seed(
+                        assign_line.container_plan_id,
+                        container_index,
+                        case_index,
+                        total_cases,
+                    ),
                     "plan_id": plan.id if plan else False,
                     "tf_container_plan_id": assign_line.container_plan_id.id,
                     "tf_description": plan.tf_description if plan and plan.tf_description else False,
