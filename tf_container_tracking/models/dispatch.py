@@ -561,6 +561,9 @@ class TfSaleSerialPlan(models.Model):
 
     def _tf_get_assignment_order_line(self):
         self.ensure_one()
+        def assignment_line_key(line):
+            return (line.tf_auto_piece_line, line.sequence or line.id, line.id)
+
         candidate_lines = self.order_id.order_line.filtered(
             lambda line: (
                 line.product_id.tracking == "serial"
@@ -577,25 +580,25 @@ class TfSaleSerialPlan(models.Model):
                 lambda line: any(plan.tf_container_plan_id == self for plan in line.tf_serial_plan_ids)
             )
             if assigned_lines:
-                return assigned_lines.sorted(lambda line: line.sequence or line.id)[:1]
+                return assigned_lines.sorted(assignment_line_key)[:1]
 
             unplanned_lines = linked_lines.filtered(lambda line: not line.tf_serial_plan_ids)
             if unplanned_lines:
-                return unplanned_lines.sorted(lambda line: line.sequence or line.id)[:1]
+                return unplanned_lines.sorted(assignment_line_key)[:1]
 
-            return linked_lines.sorted(lambda line: line.sequence or line.id)[:1]
+            return linked_lines.sorted(assignment_line_key)[:1]
 
         assigned_lines = candidate_lines.filtered(
             lambda line: any(plan.tf_container_plan_id == self for plan in line.tf_serial_plan_ids)
         )
         if assigned_lines:
-            return assigned_lines.sorted(lambda line: line.sequence or line.id)[:1]
+            return assigned_lines.sorted(assignment_line_key)[:1]
 
         unplanned_lines = candidate_lines.filtered(lambda line: not line.tf_serial_plan_ids)
         if unplanned_lines:
-            return unplanned_lines.sorted(lambda line: line.sequence or line.id)[:1]
+            return unplanned_lines.sorted(assignment_line_key)[:1]
 
-        return candidate_lines.sorted(lambda line: line.sequence or line.id)[:1]
+        return candidate_lines.sorted(assignment_line_key)[:1]
 
     def _tf_open_assignment_wizard(self):
         self.ensure_one()

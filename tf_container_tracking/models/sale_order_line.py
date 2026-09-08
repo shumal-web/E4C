@@ -21,6 +21,11 @@ class SaleOrderLine(models.Model):
         string="Linked Piece Lines",
         copy=False,
     )
+    tf_auto_piece_line = fields.Boolean(
+        string="Auto Piece Line",
+        copy=False,
+        help="Technical flag for the generic Piece line automatically created below a container line.",
+    )
 
     def _tf_is_container_line(self):
         self.ensure_one()
@@ -40,6 +45,11 @@ class SaleOrderLine(models.Model):
             or product.tf_cfs_pieces_flow
         )
 
+    def _tf_is_container_or_piece_line(self):
+        self.ensure_one()
+        product = self.product_id.product_tmpl_id
+        return bool(product.tf_is_container or product.tf_requires_container)
+
     @api.constrains("tf_container_line_id", "order_id", "product_id")
     def _check_tf_container_line_id(self):
         for line in self:
@@ -57,9 +67,14 @@ class SaleOrderLine(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
+        if not self.env.context.get("tf_skip_line_sequence_normalize"):
+            vals_list = self._tf_prepare_missing_line_sequences(vals_list)
         lines = super().create(vals_list)
         if not self.env.context.get("tf_skip_container_piece_line_sync"):
             lines._tf_sync_container_piece_lines_after_create()
+        if not self.env.context.get("tf_skip_line_sequence_normalize"):
+            lines._tf_normalize_container_piece_line_sequences()
+            lines.mapped("order_id").invalidate_recordset(["order_line"])
         return lines
 
     def write(self, vals):
@@ -69,7 +84,31 @@ class SaleOrderLine(models.Model):
             and {"product_id", "order_id", "sequence"} & set(vals)
         ):
             self._tf_sync_container_piece_lines_after_create()
+        if (
+            not self.env.context.get("tf_skip_line_sequence_normalize")
+            and {"product_id", "order_id", "sequence", "display_type"} & set(vals)
+        ):
+            self._tf_normalize_container_piece_line_sequences()
+            self.mapped("order_id").invalidate_recordset(["order_line"])
         return res
+
+    @api.model
+    def _tf_prepare_missing_line_sequences(self, vals_list):
+        prepared_vals = []
+        next_sequence_by_order = {}
+        for original_vals in vals_list:
+            vals = dict(original_vals)
+            if "sequence" not in vals and vals.get("order_id"):
+                order_id = vals["order_id"]
+                next_sequence = next_sequence_by_order.get(order_id)
+                if next_sequence is None:
+                    order = self.env["sale.order"].browse(order_id)
+                    next_sequence = max(order.order_line.mapped("sequence") or [0])
+                next_sequence += 10
+                vals["sequence"] = next_sequence
+                next_sequence_by_order[order_id] = next_sequence
+            prepared_vals.append(vals)
+        return prepared_vals
 
     def _tf_ordered_product_lines(self):
         self.ensure_one()
@@ -146,6 +185,7 @@ class SaleOrderLine(models.Model):
 
     def _tf_sync_container_piece_lines_after_create(self):
         orders = self.mapped("order_id")
+        orders.invalidate_recordset(["order_line"])
         for order in orders:
             current_container = self.env["sale.order.line"]
             for line in order.order_line.filtered(lambda item: not item.display_type).sorted(lambda item: (item.sequence, item.id)):
@@ -164,7 +204,10 @@ class SaleOrderLine(models.Model):
             container_line.invalidate_recordset(["tf_piece_line_ids"])
             if container_line.tf_piece_line_ids:
                 continue
-            self.with_context(tf_skip_container_piece_line_sync=True).create({
+            self.with_context(
+                tf_skip_container_piece_line_sync=True,
+                tf_skip_line_sequence_normalize=True,
+            ).create({
                 "order_id": container_line.order_id.id,
                 "product_id": piece_product.id,
                 "product_uom_qty": container_line.product_uom_qty,
@@ -172,7 +215,37 @@ class SaleOrderLine(models.Model):
                 "price_unit": 0.0,
                 "sequence": container_line.sequence + 1,
                 "tf_container_line_id": container_line.id,
+                "tf_auto_piece_line": True,
             })
+
+    def _tf_normalize_container_piece_line_sequences(self):
+        orders = self.mapped("order_id")
+        orders.invalidate_recordset(["order_line"])
+        for order in orders:
+            ordered_lines = order.order_line.sorted(lambda line: (line.sequence, line.id))
+            container_piece_lines = self.env["sale.order.line"]
+            for container_line in ordered_lines.filtered(lambda line: not line.display_type and line._tf_is_container_line()):
+                container_piece_lines |= container_line
+                container_piece_lines |= container_line.tf_piece_line_ids.sorted(
+                    lambda line: (line.tf_auto_piece_line, line.sequence, line.id)
+                )
+            container_piece_lines |= ordered_lines.filtered(
+                lambda line: not line.display_type
+                and line._tf_requires_container_assignment()
+                and not line.tf_container_line_id
+            )
+            other_lines = ordered_lines - container_piece_lines
+            target_lines = container_piece_lines + other_lines
+            for index, line in enumerate(target_lines, start=1):
+                target_sequence = index * 10
+                if line.sequence == target_sequence:
+                    continue
+                line.with_context(
+                    tf_skip_container_piece_line_sync=True,
+                    tf_skip_line_sequence_normalize=True,
+                ).sequence = target_sequence
+            order.invalidate_recordset(["order_line"])
+        return True
 
     def _action_launch_stock_rule(self, *, previous_product_uom_qty=False):
         custom_lines = self.filtered(lambda line: line._tf_is_custom_logistics_line())

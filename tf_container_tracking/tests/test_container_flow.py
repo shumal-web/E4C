@@ -110,6 +110,7 @@ class TestContainerFlow(TransactionCase):
 
     def test_sales_order_dispatch_fields_exist_and_view_loads(self):
         sale_model = self.env["sale.order"]
+        sale_line_model = self.env["sale.order.line"]
         self.assertIn("tf_container_tracking_count", sale_model._fields)
         self.assertIn("tf_dispatch_ticket_count", sale_model._fields)
         self.assertIn("tf_shipment_type", sale_model._fields)
@@ -122,6 +123,7 @@ class TestContainerFlow(TransactionCase):
         self.assertIn("tf_special_instructions", sale_model._fields)
         self.assertIn("tf_credit_state", sale_model._fields)
         self.assertIn("tf_partner_credit_limit", sale_model._fields)
+        self.assertIn("tf_auto_piece_line", sale_line_model._fields)
         template_model = self.env["sale.order.template"]
         self.assertIn("tf_shipment_type", template_model._fields)
         self.assertIn("tf_address_note", template_model._fields)
@@ -588,6 +590,57 @@ class TestContainerFlow(TransactionCase):
         self.assertFalse(cfs_product.tf_is_container)
         self.assertFalse(cfs_product.tf_requires_container)
         self.assertFalse(cfs_product.tf_direct_container_to_client)
+
+    def test_new_container_lines_stay_above_delivery_service_lines(self):
+        partner = self._create_partner("Line Sequence Partner")
+        container_product = self._create_product("Line Sequence Container", is_container=True)
+        self._create_product("Piece", requires_container=True)
+        delivery_product = self.env["product.template"].create({
+            "name": "Delivery to Location",
+            "type": "service",
+            "sale_ok": True,
+            "purchase_ok": False,
+        }).product_variant_id
+        tarp_product = self.env["product.template"].create({
+            "name": "If Tarps required",
+            "type": "service",
+            "sale_ok": True,
+            "purchase_ok": False,
+        }).product_variant_id
+        waiting_product = self.env["product.template"].create({
+            "name": "Waiting time",
+            "type": "service",
+            "sale_ok": True,
+            "purchase_ok": False,
+        }).product_variant_id
+
+        sale_order = self.env["sale.order"].create({"partner_id": partner.id})
+        first_container_line = self._create_so_line(sale_order, container_product, 1.0)
+        self.assertTrue(first_container_line.tf_piece_line_ids)
+        self.assertTrue(first_container_line.tf_piece_line_ids.product_id.product_tmpl_id.tf_requires_container)
+
+        self._create_so_line(sale_order, delivery_product, 1.0)
+        self._create_so_line(sale_order, tarp_product, 1.0)
+        self._create_so_line(sale_order, waiting_product, 1.0)
+        second_container_line = self._create_so_line(sale_order, container_product, 1.0)
+
+        sale_order.invalidate_recordset(["order_line"])
+        ordered_lines = sale_order.order_line.sorted(lambda line: (line.sequence, line.id))
+        self.assertEqual(
+            [line.product_id.name for line in ordered_lines],
+            [
+                "Line Sequence Container",
+                "Piece",
+                "Line Sequence Container",
+                "Piece",
+                "Delivery to Location",
+                "If Tarps required",
+                "Waiting time",
+            ],
+        )
+        self.assertTrue(second_container_line.tf_piece_line_ids)
+        self.assertTrue(second_container_line.tf_piece_line_ids.product_id.product_tmpl_id.tf_requires_container)
+        self.assertLess(second_container_line.sequence, ordered_lines.filtered(lambda line: line.product_id == delivery_product).sequence)
 
     def test_quotation_template_sets_sales_order_defaults(self):
         partner = self._create_partner("Template Flow Partner")
