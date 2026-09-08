@@ -53,6 +53,12 @@ class TfSaleSerialWizard(models.TransientModel):
         default="kg",
     )
 
+    tf_assign_address_note = fields.Text(string="Address")
+
+    def _tf_default_address_note(self):
+        self.ensure_one()
+        return self.order_id.tf_consignee_note or self.order_id.tf_address_note or False
+
     def _tf_cm_to_inches(self, value):
         return round((value or 0.0) / 2.54, 2)
 
@@ -282,6 +288,7 @@ class TfSaleSerialWizard(models.TransientModel):
                     "tf_container_status": "on_water",
                     "tf_weight_unit": "kg",
                     "tf_import_export": sol.order_id.tf_shipment_type,
+                    "tf_address_note": sol.order_id.tf_consignee_note or sol.order_id.tf_address_note or False,
                 }))
         if not line_commands:
             return res
@@ -289,6 +296,7 @@ class TfSaleSerialWizard(models.TransientModel):
         existing_count = len(existing_plans)
         sequence_map = {plan.sequence: plan for plan in existing_plans}
         serial_map = {plan.serial_name: plan for plan in existing_plans if plan.serial_name}
+        default_address_note = sol.order_id.tf_consignee_note or sol.order_id.tf_address_note or False
         assign_commands = []
         if allow_blank_serial:
             container_plans = sol._tf_container_plans_for_assignment()
@@ -311,7 +319,10 @@ class TfSaleSerialWizard(models.TransientModel):
                     "tf_assign_dimension_unit": sample_plan.tf_dimension_unit or "cm",
                     "tf_assign_weight": sample_plan.tf_weight,
                     "tf_assign_weight_unit": sample_plan.tf_weight_unit or "kg",
+                    "tf_assign_address_note": sample_plan.tf_address_note or default_address_note,
                 })
+            elif default_address_note:
+                res["tf_assign_address_note"] = default_address_note
 
         patched_commands = []
         for index, command in enumerate(line_commands, start=1):
@@ -355,6 +366,11 @@ class TfSaleSerialWizard(models.TransientModel):
                     "tf_chassis_no": plan.tf_chassis_no if plan else False,
                     "tf_pubk_no": plan.tf_pubk_no if plan else False,
                     "tf_import_export": plan.tf_import_export if plan else sol.order_id.tf_shipment_type,
+                    "tf_address_note": (
+                        plan.tf_address_note
+                        if plan
+                        else vals.get("tf_address_note") or default_address_note
+                    ),
                 })
             if not is_container:
                 vals["tf_dimension_unit"] = vals.get("tf_dimension_unit") or "cm"
@@ -386,6 +402,7 @@ class TfSaleSerialWizard(models.TransientModel):
                             "serial_name": False,
                             "tf_dimension_unit": "cm",
                             "tf_weight_unit": "kg",
+                            "tf_address_note": self._tf_default_address_note(),
                         },
                     )
                 ]
@@ -420,6 +437,7 @@ class TfSaleSerialWizard(models.TransientModel):
                         "tf_container_type": self.product_id.product_tmpl_id.tf_container_type,
                         "tf_weight_unit": "kg",
                         "tf_import_export": self.order_id.tf_shipment_type,
+                        "tf_address_note": self._tf_default_address_note(),
                     },
                 )
             ]
@@ -438,6 +456,11 @@ class TfSaleSerialWizard(models.TransientModel):
         for index, line in enumerate(ordered_lines):
             container_plan = container_plans[index % len(container_plans)]
             line.tf_container_plan_id = container_plan
+            line.tf_address_note = (
+                container_plan.tf_address_note
+                or self.tf_assign_address_note
+                or self._tf_default_address_note()
+            )
             grouped_lines.setdefault(container_plan.id, self.env["tf.sale.serial.wizard.line"])
             grouped_lines[container_plan.id] |= line
 
@@ -476,6 +499,11 @@ class TfSaleSerialWizard(models.TransientModel):
         for assign_line in container_lines:
             total_cases = int(assign_line.case_qty or 0)
             container_index = container_index_by_id.get(assign_line.container_plan_id.id, 1)
+            address_note = (
+                assign_line.container_plan_id.tf_address_note
+                or self.tf_assign_address_note
+                or self._tf_default_address_note()
+            )
             for case_index in range(1, total_cases + 1):
                 plan = existing_plans[line_index] if line_index < len(existing_plans) else False
                 vals = {
@@ -497,6 +525,7 @@ class TfSaleSerialWizard(models.TransientModel):
                     "tf_weight_unit": self.tf_assign_weight_unit or "kg",
                     "tf_storage_rate": plan.tf_storage_rate if plan else False,
                     "tf_location_note": plan.tf_location_note if plan else False,
+                    "tf_address_note": address_note,
                 }
                 new_commands.append((0, 0, vals))
                 line_index += 1
@@ -562,6 +591,7 @@ class TfSaleSerialWizard(models.TransientModel):
                 "tf_weight_unit": line.tf_weight_unit,
                 "tf_storage_rate": line.tf_storage_rate,
                 "tf_location_note": line.tf_location_note,
+                "tf_address_note": line.tf_address_note,
                 "tf_container_plan_id": False if self.tf_is_container_product else line.tf_container_plan_id.id,
                 "tf_container_number": line.tf_container_number or (line.serial_name if self.tf_is_container_product else False),
                 "tf_internal_status": line.tf_internal_status,
@@ -662,6 +692,7 @@ class TfSaleSerialWizardLine(models.TransientModel):
     tf_container_type = fields.Char(string="Type")
     tf_chassis_no = fields.Char(string="Chassis #")
     tf_pubk_no = fields.Char(string="PU/BK #")
+    tf_address_note = fields.Text(string="Address")
     tf_import_export = fields.Selection(
         [
             ("import", "Import"),

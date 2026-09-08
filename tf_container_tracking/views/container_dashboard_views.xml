@@ -43,6 +43,7 @@
                        decoration-muted="tf_container_status == 'de_stuffed'"
                        decoration-danger="tf_container_status == 'returned'"/>
                 <field name="tf_container_location"/>
+                <field name="tf_address_note" optional="show"/>
                 <field name="tf_eta"/>
                 <field name="tf_lfd"/>
                 <field name="tf_cutoff_date"/>
@@ -137,6 +138,7 @@
                         <group>
                             <field name="tf_port_to_destuff"/>
                             <field name="tf_container_location"/>
+                            <field name="tf_address_note" widget="text"/>
                             <field name="tf_ready_on"/>
                             <field name="tf_ssl"/>
                             <field name="tf_container_type"/>
@@ -180,6 +182,7 @@
                 <field name="tf_port_to_destuff"/>
                 <field name="tf_container_status"/>
                 <field name="tf_container_location"/>
+                <field name="tf_address_note"/>
                 <field name="tf_eta"/>
                 <field name="tf_lfd"/>
                 <field name="tf_cutoff_date"/>

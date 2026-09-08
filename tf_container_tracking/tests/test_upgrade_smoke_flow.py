@@ -150,11 +150,15 @@ class TestUpgradeSmokeFlow(TransactionCase):
 
         container_wizard = self._open_serial_wizard(container_line)
         self.assertEqual(len(container_wizard.line_ids), 2)
+        container_lines = container_wizard.line_ids.sorted(lambda line: (line.sequence, line.id))
+        container_lines[0].tf_address_note = "Smoke container C01 address"
+        container_lines[1].tf_address_note = "Smoke container C02 address"
         container_wizard.action_apply()
         container_plans = container_line.tf_serial_plan_ids.sorted(lambda p: (p.sequence, p.id))
         self.assertEqual(container_plans.mapped("serial_name"), [f"{sale_order.name}-C01", f"{sale_order.name}-C02"])
         self.assertEqual(container_plans.mapped("tf_container_number"), [f"{sale_order.name}-C01", f"{sale_order.name}-C02"])
         self.assertEqual(set(container_plans.mapped("tf_container_type")), {"40HC"})
+        self.assertEqual(container_plans.mapped("tf_address_note"), ["Smoke container C01 address", "Smoke container C02 address"])
 
         case_wizard = self._open_serial_wizard(case_line)
         self.assertEqual(len(case_wizard.assign_line_ids), 2)
@@ -181,6 +185,10 @@ class TestUpgradeSmokeFlow(TransactionCase):
         self.assertEqual(case_plans.mapped("tf_container_plan_id"), container_plans[0] | container_plans[1])
         self.assertEqual(set(case_plans.mapped("tf_dimension_unit")), {"cm"})
         self.assertEqual(set(case_plans.mapped("tf_weight_unit")), {"kg"})
+        self.assertEqual(
+            case_plans.mapped("tf_address_note"),
+            ["Smoke container C01 address", "Smoke container C01 address", "Smoke container C02 address"],
+        )
 
         sale_order.action_confirm()
         sale_order.action_tf_approve()
@@ -190,6 +198,10 @@ class TestUpgradeSmokeFlow(TransactionCase):
         self.assertEqual(receiving.state, "done")
         self.assertEqual(len(case_plans.mapped("lot_id")), 3)
         self.assertEqual(case_plans.mapped("lot_id").mapped("tf_origin_sale_order_id"), sale_order)
+        self.assertEqual(
+            case_plans.mapped("lot_id").sorted(lambda lot: lot.name).mapped("tf_address_note"),
+            ["Smoke container C01 address", "Smoke container C01 address", "Smoke container C02 address"],
+        )
 
         selected_lots = case_plans[:2].mapped("lot_id")
         action = selected_lots.action_tf_truck_out_selected()
@@ -323,8 +335,8 @@ class TestUpgradeSmokeFlow(TransactionCase):
                 "container_number",
             ],
             "tf.sale.serial.plan": ["tf_ssl", "tf_port_to_destuff"],
-            "stock.lot": ["tf_origin_sale_order_id", "tf_container_lot_id", "tf_ssl", "tf_port_to_destuff"],
-            "stock.move.line": ["tf_allowed_lot_ids", "tf_ssl", "tf_port_to_destuff"],
+            "stock.lot": ["tf_origin_sale_order_id", "tf_container_lot_id", "tf_ssl", "tf_port_to_destuff", "tf_address_note"],
+            "stock.move.line": ["tf_allowed_lot_ids", "tf_ssl", "tf_port_to_destuff", "tf_address_note"],
         }
         for model_name, field_names in field_checks.items():
             model = self.env[model_name]

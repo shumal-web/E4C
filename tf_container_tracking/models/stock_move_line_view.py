@@ -38,14 +38,22 @@ class StockMoveLine(models.Model):
             else:
                 doc.insert(0, helper)
 
-        if doc.xpath(".//field[@name='tf_container_plan_id']"):
-            return etree.tostring(doc, encoding="unicode"), view
-
         anchors = doc.xpath(".//field[@name='tf_location_note']")
         if not anchors:
             anchors = doc.xpath(".//field[@name='lot_name'] | .//field[@name='lot_id']")
         if not anchors:
             return arch, view
+
+        last_anchor = anchors[0]
+        if not doc.xpath(".//field[@name='tf_address_note']"):
+            address_node = etree.Element("field", name="tf_address_note")
+            address_node.set("string", "Address")
+            address_node.set("readonly", "not tf_allow_receipt_edit")
+            anchors[0].addnext(address_node)
+            last_anchor = address_node
+
+        if doc.xpath(".//field[@name='tf_container_plan_id']"):
+            return etree.tostring(doc, encoding="unicode"), view
 
         node = etree.Element("field", name="tf_container_plan_id")
         node.set("string", "Container")
@@ -55,6 +63,6 @@ class StockMoveLine(models.Model):
         node.set("can_write", "0")
         node.set("context", "{'create': False}")
         node.set("options", "{'no_create': True, 'no_create_edit': True, 'no_open': True}")
-        anchors[0].addnext(node)
+        last_anchor.addnext(node)
 
         return etree.tostring(doc, encoding="unicode"), view

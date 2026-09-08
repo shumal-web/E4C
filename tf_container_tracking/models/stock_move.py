@@ -80,6 +80,8 @@ class StockMove(models.Model):
                     values["tf_storage_rate"] = template_line.tf_storage_rate
                 if not values.get("tf_location_note"):
                     values["tf_location_note"] = template_line.tf_location_note
+                if not values.get("tf_address_note"):
+                    values["tf_address_note"] = template_line.tf_address_note
             for key, value in attrs.items():
                 values[key] = value
         return vals_list

@@ -28,6 +28,7 @@
                         </field>
                     </group>
                     <group string="Common Attributes">
+                        <field name="tf_assign_address_note" widget="text" placeholder="Address..."/>
                         <field name="tf_assign_length" force_save="1"/>
                         <field name="tf_assign_width" force_save="1"/>
                         <field name="tf_assign_height" force_save="1"/>
@@ -48,6 +49,7 @@
                        can_write="0"
                        context="{'create': False}"
                        options="{'no_create': True, 'no_create_edit': True, 'no_open': True}"/>
+                <field name="tf_address_note" string="Address" optional="show"/>
             </xpath>
 
             <xpath expr="//footer/button[@name='action_generate_serials']" position="attributes">
@@ -88,6 +90,7 @@
                         <field name="sequence" column_invisible="1"/>
                         <field name="serial_name"/>
                         <field name="tf_container_number"/>
+                        <field name="tf_address_note" string="Address" optional="show"/>
                         <field name="tf_port_to_destuff"/>
                         <field name="tf_ssl"/>
                         <field name="tf_internal_status"/>

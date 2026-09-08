@@ -20,6 +20,7 @@ SERIAL_ATTRIBUTE_FIELDS = {
     "tf_weight_unit",
     "tf_storage_rate",
     "tf_location_note",
+    "tf_address_note",
 }
 
 CONTAINER_ATTRIBUTE_FIELDS = {
@@ -78,6 +79,7 @@ class StockMoveLine(models.Model):
         ],
         string="Import/Export",
     )
+    tf_address_note = fields.Text(string="Address")
 
     tf_allowed_lot_ids = fields.Many2many(
         "stock.lot",

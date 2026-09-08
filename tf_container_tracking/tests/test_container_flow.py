@@ -138,8 +138,11 @@ class TestContainerFlow(TransactionCase):
         plan_model = self.env["tf.sale.serial.plan"]
         self.assertEqual(plan_model._fields["tf_ssl"].type, "selection")
         self.assertEqual(plan_model._fields["tf_port_to_destuff"].type, "selection")
+        self.assertIn("tf_address_note", plan_model._fields)
         self.assertIn(("MSC", "MSC"), plan_model._fields["tf_ssl"].selection)
         self.assertIn(("CN", "CN"), plan_model._fields["tf_port_to_destuff"].selection)
+        self.assertIn("tf_address_note", self.env["stock.lot"]._fields)
+        self.assertIn("tf_address_note", self.env["stock.move.line"]._fields)
 
         form_view = sale_model.get_view(
             view_id=self.env.ref("sale.view_order_form").id,
@@ -464,9 +467,10 @@ class TestContainerFlow(TransactionCase):
 
         self.assertEqual(sequence_field.get("column_invisible"), "1")
         self.assertEqual(
-            field_names[:5],
-            ["plan_id", "sequence", "serial_name", "tf_container_number", "tf_port_to_destuff"],
+            field_names[:6],
+            ["plan_id", "sequence", "serial_name", "tf_container_number", "tf_address_note", "tf_port_to_destuff"],
         )
+        self.assertLess(field_names.index("tf_address_note"), field_names.index("tf_port_to_destuff"))
         self.assertLess(field_names.index("tf_ssl"), field_names.index("tf_internal_status"))
         self.assertLess(field_names.index("tf_ssl"), field_names.index("tf_eta"))
 
@@ -728,6 +732,7 @@ class TestContainerFlow(TransactionCase):
         for index, line in enumerate(container_wizard.line_ids.sorted(lambda l: (l.sequence, l.id)), start=1):
             line.write({
                 "tf_container_number": f"QA-CONT-{index}",
+                "tf_address_note": f"QA container address {index}",
                 "tf_internal_status": "planning",
                 "tf_container_status": "on_water",
                 "tf_ssl": "CMA CGM",
@@ -738,6 +743,7 @@ class TestContainerFlow(TransactionCase):
         container_plans = container_line.tf_serial_plan_ids.sorted(lambda p: (p.sequence, p.id))
         self.assertEqual(len(container_plans), 2)
         self.assertTrue(all(container_plans.mapped("tf_is_container_product")))
+        self.assertEqual(container_plans.mapped("tf_address_note"), ["QA container address 1", "QA container address 2"])
 
         piece_wizard = self._open_wizard(piece_line)
         with self.assertRaises(UserError):
@@ -749,6 +755,10 @@ class TestContainerFlow(TransactionCase):
         piece_plans = piece_line.tf_serial_plan_ids.sorted(lambda p: (p.sequence, p.id))
         self.assertEqual(len(piece_plans), 4)
         self.assertTrue(all(piece_plans.mapped("tf_container_plan_id")))
+        self.assertEqual(
+            set(piece_plans.mapped("tf_address_note")),
+            {"QA container address 1", "QA container address 2"},
+        )
 
         incoming_type = self.env["stock.picking.type"].search([
             ("code", "=", "incoming"),
@@ -811,6 +821,10 @@ class TestContainerFlow(TransactionCase):
 
         piece_lots = piece_plans.mapped("lot_id")
         self.assertTrue(all(piece_lots.mapped("tf_container_lot_id")))
+        self.assertEqual(
+            set(piece_lots.mapped("tf_address_note")),
+            {"QA container address 1", "QA container address 2"},
+        )
 
         dashboard_rows = self.env["tf.sale.serial.plan"].search([
             ("tf_is_container_product", "=", True),
@@ -888,7 +902,10 @@ class TestContainerFlow(TransactionCase):
         container_product = self._create_product("Case Format Container", is_container=True)
         piece_product = self._create_product("Case Format Piece", requires_container=True)
 
-        sale_order = self.env["sale.order"].create({"partner_id": partner.id})
+        sale_order = self.env["sale.order"].create({
+            "partner_id": partner.id,
+            "tf_consignee_note": "Format consignee address",
+        })
         container_line = self._create_so_line(sale_order, container_product, 2.0)
         piece_line = self._create_so_line(sale_order, piece_product, 5.0)
 
@@ -924,13 +941,17 @@ class TestContainerFlow(TransactionCase):
         self.assertEqual([plan.tf_container_plan_id.id for plan in piece_plans[3:]], [container_plans[1].id] * 2)
         self.assertEqual(set(piece_plans.mapped("tf_dimension_unit")), {"cm"})
         self.assertEqual(set(piece_plans.mapped("tf_weight_unit")), {"kg"})
+        self.assertEqual(set(piece_plans.mapped("tf_address_note")), {"Format consignee address"})
 
     def test_container_line_auto_adds_linked_piece_line_when_piece_product_exists(self):
         partner = self._create_partner("Auto Piece Partner")
         container_product = self._create_product("Auto Piece Container", is_container=True)
         self._create_product("Piece", requires_container=True)
 
-        sale_order = self.env["sale.order"].create({"partner_id": partner.id})
+        sale_order = self.env["sale.order"].create({
+            "partner_id": partner.id,
+            "tf_consignee_note": "Scoped consignee address",
+        })
         container_line = self._create_so_line(sale_order, container_product, 3.0)
 
         piece_lines = sale_order.order_line.filtered(
@@ -954,8 +975,13 @@ class TestContainerFlow(TransactionCase):
         self.assertEqual(piece_line_1.tf_container_line_id, container_line_1)
         self.assertEqual(piece_line_2.tf_container_line_id, container_line_2)
 
-        self._open_wizard(container_line_1).action_apply()
-        self._open_wizard(container_line_2).action_apply()
+        first_container_wizard = self._open_wizard(container_line_1)
+        first_container_wizard.line_ids.sorted(lambda l: (l.sequence, l.id))[0].tf_address_note = "Scoped address C01"
+        first_container_wizard.line_ids.sorted(lambda l: (l.sequence, l.id))[1].tf_address_note = "Scoped address C02"
+        first_container_wizard.action_apply()
+        second_container_wizard = self._open_wizard(container_line_2)
+        second_container_wizard.line_ids.tf_address_note = "Scoped address C03"
+        second_container_wizard.action_apply()
 
         first_container_plans = container_line_1.tf_serial_plan_ids.sorted(lambda p: (p.sequence, p.id))
         second_container_plans = container_line_2.tf_serial_plan_ids.sorted(lambda p: (p.sequence, p.id))
@@ -991,6 +1017,11 @@ class TestContainerFlow(TransactionCase):
         )
         self.assertEqual(first_piece_plans.mapped("tf_container_plan_id"), first_container_plans)
         self.assertEqual(second_piece_plans.mapped("tf_container_plan_id"), second_container_plans)
+        self.assertEqual(
+            first_piece_plans.mapped("tf_address_note"),
+            ["Scoped address C01", "Scoped address C02", "Scoped address C02"],
+        )
+        self.assertEqual(second_piece_plans.mapped("tf_address_note"), ["Scoped address C03", "Scoped address C03"])
 
     def test_shipper_consignee_contacts_copy_and_reach_serials(self):
         customer = self._create_partner("Address Flow Customer")

@@ -155,6 +155,11 @@ class TfSaleSerialPlan(models.Model):
         index=True,
         tracking=True,
     )
+    tf_address_note = fields.Text(
+        string="Address",
+        tracking=True,
+        help="Address snapshot used for this container or piece serial.",
+    )
     tf_shipper_partner_id = fields.Many2one(
         "res.partner",
         string="Shipper Address",

@@ -55,6 +55,7 @@ class StockLot(models.Model):
         store=True,
         readonly=True,
     )
+    tf_address_note = fields.Text(string="Address")
 
     tf_is_container_lot = fields.Boolean(
         related="product_id.product_tmpl_id.tf_is_container",
@@ -267,6 +268,9 @@ class StockLot(models.Model):
                     "tf_weight_unit": lot.tf_weight_unit,
                     "tf_storage_rate": lot.tf_storage_rate,
                     "tf_location_note": lot.tf_location_note,
+                    "tf_address_note": lot.tf_address_note
+                    or (serial_plan.tf_address_note if serial_plan else False)
+                    or (container_plan.tf_address_note if container_plan else False),
                     "tf_internal_status": container_plan.tf_internal_status if container_plan else "for_approval",
                     "tf_port_to_destuff": container_plan.tf_port_to_destuff if container_plan else False,
                     "tf_container_status": container_plan.tf_container_status if container_plan else "on_water",
@@ -364,6 +368,9 @@ class StockLot(models.Model):
                     "tf_weight_unit": lot.tf_weight_unit,
                     "tf_storage_rate": lot.tf_storage_rate,
                     "tf_location_note": lot.tf_location_note,
+                    "tf_address_note": lot.tf_address_note
+                    or (serial_plan.tf_address_note if serial_plan else False)
+                    or (container_plan.tf_address_note if container_plan else False),
                     "tf_internal_status": container_plan.tf_internal_status if container_plan else "for_approval",
                     "tf_port_to_destuff": container_plan.tf_port_to_destuff if container_plan else False,
                     "tf_container_status": container_plan.tf_container_status if container_plan else "on_water",

@@ -41,6 +41,7 @@
                 <attribute name="invisible">tf_is_container_product</attribute>
             </xpath>
             <xpath expr="//field[@name='tf_location_note']" position="after">
+                <field name="tf_address_note" string="Address" readonly="not tf_allow_receipt_edit" optional="show"/>
                 <field name="tf_container_plan_id"
                        invisible="tf_hide_container_columns or tf_is_container_product"
                        readonly="not tf_allow_receipt_edit"
@@ -104,6 +105,7 @@
                 <attribute name="invisible">tf_is_container_product</attribute>
             </xpath>
             <xpath expr="//field[@name='tf_location_note']" position="after">
+                <field name="tf_address_note" string="Address" readonly="not tf_allow_receipt_edit" optional="show"/>
                 <field name="tf_container_plan_id"
                        invisible="tf_hide_container_columns or tf_is_container_product"
                        readonly="not tf_allow_receipt_edit"
