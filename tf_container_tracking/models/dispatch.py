@@ -103,6 +103,12 @@ class TfDispatchTicket(models.Model):
         store=True,
         readonly=True,
     )
+    tf_container_serial_number = fields.Char(
+        string="Container Serial Number",
+        related="container_plan_id.tf_container_serial_number",
+        store=True,
+        readonly=True,
+    )
     location_partner_id = fields.Many2one("res.partner", string="Location", tracking=True)
     location_note = fields.Char(string="Dispatch Address", tracking=True)
 
@@ -195,13 +201,24 @@ class TfDispatchTicket(models.Model):
         readonly=True,
     )
     tf_container_weight = fields.Float(
-        string="Weight",
+        string="Tare Weight",
         related="container_plan_id.tf_weight",
         store=True,
         readonly=True,
     )
     tf_container_weight_unit = fields.Selection(
         related="container_plan_id.tf_weight_unit",
+        store=True,
+        readonly=True,
+    )
+    tf_container_total_weight = fields.Float(
+        string="Total Weight",
+        related="container_plan_id.tf_total_weight",
+        store=True,
+        readonly=True,
+    )
+    tf_container_total_weight_unit = fields.Selection(
+        related="container_plan_id.tf_total_weight_unit",
         store=True,
         readonly=True,
     )
@@ -234,8 +251,6 @@ class TfDispatchTicket(models.Model):
     @api.depends(
         "sale_order_id",
         "sale_order_ids",
-        "customer_id",
-        "contact_id",
         "container_plan_id",
         "dispatch_date",
         "trailer_destination_location",
@@ -251,8 +266,6 @@ class TfDispatchTicket(models.Model):
         for rec in self:
             sales_orders = rec.sale_order_ids or rec.sale_order_id
             so = ", ".join(sales_orders.mapped("name")) or "-"
-            customer = rec.customer_id.display_name or "-"
-            contact = rec.contact_id.display_name or "-"
             customer_ref = rec.customer_reference or "-"
             container = rec.container_number or "-"
             when = fields.Datetime.to_string(rec.dispatch_date) if rec.dispatch_date else "-"
@@ -265,8 +278,6 @@ class TfDispatchTicket(models.Model):
             rec.whatsapp_message_preview = _(
                 "Dispatch Instruction\n"
                 "SO: %(so)s\n"
-                "Customer: %(customer)s\n"
-                "Contact: %(contact)s\n"
                 "Customer Reference: %(customer_ref)s\n"
                 "Container: %(container)s\n"
                 "Type: %(container_type)s\n"
@@ -279,8 +290,6 @@ class TfDispatchTicket(models.Model):
                 "Date: %(when)s"
             ) % {
                 "so": so,
-                "customer": customer,
-                "contact": contact,
                 "customer_ref": customer_ref,
                 "container": container,
                 "container_type": rec.tf_container_type or "-",
@@ -617,7 +626,7 @@ class TfSaleSerialPlan(models.Model):
 
     def _prepare_dispatch_defaults(self, dispatch_type):
         self.ensure_one()
-        location_note = self.tf_port_to_destuff or self.tf_container_location
+        location_note = self.tf_address_note or self.tf_port_to_destuff or self.tf_container_location
         dispatch_date = self.tf_ready_on or fields.Datetime.now()
         if dispatch_type in ("delivery_leg_2", "export_container_leg_2"):
             location_note = self.tf_container_location or self.tf_container_number or location_note

@@ -18,6 +18,7 @@
                        readonly="state in ['cancel', 'done']"/>
                 <field name="tf_customer_reference" readonly="1"/>
                 <field name="tf_container_number" readonly="1"/>
+                <field name="tf_container_serial_number" readonly="1"/>
                 <field name="tf_flow_kind" readonly="1"/>
                 <field name="tf_shipper_partner_id" readonly="1"/>
                 <field name="tf_shipper_note" widget="text" readonly="1"/>
@@ -40,6 +41,7 @@
                 <field name="tf_sale_order_id" optional="show"/>
                 <field name="tf_customer_reference" optional="hide"/>
                 <field name="tf_container_number" optional="show"/>
+                <field name="tf_container_serial_number" optional="show"/>
                 <field name="tf_flow_kind" optional="show"/>
             </xpath>
         </field>

@@ -1,0 +1,103 @@
+/* Keep the E4C serial editors readable without changing every Odoo modal. */
+.modal-dialog.tf_sale_serial_dialog,
+.modal-dialog.tf_sale_serial_container_dialog,
+.modal-dialog:has(.tf_sale_serial_container_wizard) {
+    width: min(98vw, 1900px);
+    max-width: min(98vw, 1900px);
+    margin-top: 12px;
+    margin-bottom: 12px;
+}
+
+.modal-dialog.tf_sale_serial_dialog .modal-content,
+.modal-dialog.tf_sale_serial_container_dialog .modal-content,
+.modal-dialog:has(.tf_sale_serial_container_wizard) .modal-content {
+    height: calc(100vh - 24px);
+    max-height: calc(100vh - 24px);
+}
+
+.modal-dialog.tf_sale_serial_dialog .modal-body,
+.modal-dialog.tf_sale_serial_container_dialog .modal-body,
+.modal-dialog:has(.tf_sale_serial_container_wizard) .modal-body {
+    overflow: auto;
+}
+
+.tf_sale_serial_wizard .o_form_view_container,
+.tf_sale_serial_wizard .o_form_renderer {
+    min-height: 100%;
+}
+
+.tf_sale_serial_wizard .o_list_renderer {
+    overflow-x: auto;
+}
+
+/* Only the dedicated container editor needs a very wide table. The piece assignment
+   table must stay compact so the quantity input remains visible beside the container. */
+.tf_sale_serial_container_wizard .o_list_renderer .o_list_table {
+    min-width: 2300px;
+    table-layout: auto;
+}
+
+.tf_sale_serial_wizard .o_list_renderer th,
+.tf_sale_serial_wizard .o_list_renderer td {
+    vertical-align: middle;
+}
+
+.tf_sale_serial_wizard .o_list_renderer th[data-name="tf_description"],
+.tf_sale_serial_wizard .o_data_cell[name="tf_description"],
+.tf_sale_serial_wizard .o_list_renderer th[data-name="tf_location_note"],
+.tf_sale_serial_wizard .o_data_cell[name="tf_location_note"] {
+    width: 260px;
+    min-width: 260px;
+    max-width: 320px;
+}
+
+.tf_sale_serial_container_wizard .o_list_renderer th[data-name="tf_address_partner_id"],
+.tf_sale_serial_container_wizard .o_data_cell[name="tf_address_partner_id"],
+.tf_sale_serial_container_wizard .o_list_renderer th[data-name="tf_address_note"],
+.tf_sale_serial_container_wizard .o_data_cell[name="tf_address_note"] {
+    width: 380px;
+    min-width: 380px;
+    max-width: 460px;
+}
+
+.tf_sale_serial_container_wizard .o_list_renderer th[data-name="tf_container_type"],
+.tf_sale_serial_container_wizard .o_data_cell[name="tf_container_type"] {
+    width: 280px;
+    min-width: 280px;
+    max-width: 360px;
+}
+
+.tf_sale_serial_container_wizard .o_list_renderer th[data-name="tf_container_number"],
+.tf_sale_serial_container_wizard .o_data_cell[name="tf_container_number"],
+.tf_sale_serial_container_wizard .o_list_renderer th[data-name="tf_container_serial_number"],
+.tf_sale_serial_container_wizard .o_data_cell[name="tf_container_serial_number"] {
+    width: 150px;
+    min-width: 150px;
+}
+
+.tf_sale_serial_wizard .o_data_cell[name="tf_description"] .o_field_widget,
+.tf_sale_serial_wizard .o_data_cell[name="tf_location_note"] .o_field_widget,
+.tf_sale_serial_container_wizard .o_data_cell[name="tf_address_partner_id"] .o_field_widget,
+.tf_sale_serial_container_wizard .o_data_cell[name="tf_container_type"] .o_field_widget {
+    display: block;
+    white-space: nowrap !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tf_sale_serial_container_wizard .o_data_cell[name="tf_address_note"] .o_field_widget {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    white-space: normal !important;
+    overflow: hidden;
+    line-height: 1.25;
+}
+
+.tf_sale_serial_wizard .o_data_row {
+    height: 46px;
+}
+
+.tf_sale_serial_container_wizard .o_data_row {
+    height: 58px;
+}

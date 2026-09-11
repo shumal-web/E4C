@@ -64,7 +64,8 @@ class TestE4CPrintouts(TransactionCase):
             "order_id": self.sale_order.id,
             "order_line_id": self.container_line.id,
             "serial_name": "SOPRINT-C01",
-            "tf_container_number": "SOPRINT-C01",
+            "tf_container_number": "CONT-PRINT-001",
+            "tf_container_serial_number": "CSN-PRINT-001",
             "tf_container_type": "40HC",
             "tf_pubk_no": "BK-001",
             "tf_ssl": "MSC",
@@ -77,6 +78,7 @@ class TestE4CPrintouts(TransactionCase):
             "company_id": self.env.company.id,
             "tf_origin_sale_order_id": self.sale_order.id,
             "tf_description": "Container",
+            "tf_container_serial_number": "CSN-PRINT-001",
         })
         self.container_plan.lot_id = self.container_lot.id
         self.case_plan = self.env["tf.sale.serial.plan"].create({
@@ -84,6 +86,7 @@ class TestE4CPrintouts(TransactionCase):
             "order_line_id": self.case_line.id,
             "serial_name": "SOPRINT-C01-P01-of-01",
             "tf_container_plan_id": self.container_plan.id,
+            "tf_container_serial_number": "CSN-PRINT-001",
             "tf_description": "Fragile Case",
             "tf_length": 10.0,
             "tf_width": 5.0,
@@ -248,27 +251,27 @@ class TestE4CPrintouts(TransactionCase):
         report_expectations = {
             "tf_e4c_printouts.report_e4c_receiving_labels": (
                 "tf_e4c_printouts.action_report_e4c_receiving_labels",
-                ["Container #", "SOPRINT-C01", "Fragile Case"],
+                ["Container #", "CONT-PRINT-001", "File Number", "Fragile Case"],
             ),
             "tf_e4c_printouts.report_e4c_truck_in_sheet": (
                 "tf_e4c_printouts.action_report_e4c_truck_in_sheet",
-                ["Truck Sheet", "In", "Fragile Case", "Printout Shipper", "Printout Consignee"],
+                ["Truck Sheet", "In", "CONT-PRINT-001", "Weight Included", "Fragile Case", "Printout Shipper", "Printout Consignee", "Call before arrival"],
             ),
             "tf_e4c_printouts.report_e4c_truck_out_sheet_picking": (
                 "tf_e4c_printouts.action_report_e4c_truck_out_sheet_picking",
-                ["Truck Sheet", "Out", "Fragile Case", "Printout Shipper", "Printout Consignee"],
+                ["Truck Sheet", "Out", "CONT-PRINT-001", "Weight Included", "Fragile Case", "Printout Shipper", "Printout Consignee", "Call before arrival"],
             ),
             "tf_e4c_printouts.report_e4c_dispatch_bol": (
                 "tf_e4c_printouts.action_report_e4c_dispatch_bol",
-                ["STRAIGHT BILL OF LADING", "SOPRINT-C01-P01-of-01", "Printout Shipper", "Printout Consignee", "Bill of Lading Terms"],
+                ["STRAIGHT BILL OF LADING", "Weight Included", "SOPRINT-C01-P01-of-01", "Printout Shipper", "Printout Consignee", "Bill of Lading Terms"],
             ),
             "tf_e4c_printouts.report_e4c_dispatch_truck_out_sheet": (
                 "tf_e4c_printouts.action_report_e4c_dispatch_truck_out_sheet",
-                ["Truck Sheet", "Out", "Fragile Case", "Printout Shipper", "Printout Consignee"],
+                ["Truck Sheet", "Out", "CONT-PRINT-001", "Weight Included", "Fragile Case", "Printout Shipper", "Printout Consignee", "Call before arrival"],
             ),
             "tf_e4c_printouts.report_e4c_export_checklist": (
                 "tf_e4c_printouts.action_report_e4c_export_checklist",
-                ["EXPORT CHECKLIST", "Load, Block, Brace", "Fragile Case", "Printout Shipper", "Printout Consignee"],
+                ["EXPORT CHECKLIST", "Load, Block, Brace", "CONT-PRINT-001", "Tare Weight", "Total Weight", "Fragile Case", "Printout Shipper", "Printout Consignee"],
             ),
         }
         picking_reports = {

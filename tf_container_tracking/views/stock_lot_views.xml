@@ -23,6 +23,7 @@
                     <field name="tf_consignee_note" widget="text" readonly="1"/>
                     <field name="tf_address_note" widget="text"/>
                     <field name="tf_container_lot_id" invisible="tf_is_container_lot"/>
+                    <field name="tf_container_serial_number"/>
                     <field name="tf_port_to_destuff"/>
                     <field name="tf_container_status"/>
                     <field name="tf_eta"/>
@@ -30,6 +31,8 @@
                     <field name="tf_cutoff_date"/>
                     <field name="tf_ssl"/>
                     <field name="tf_container_type"/>
+                    <field name="tf_total_weight" readonly="1"/>
+                    <field name="tf_total_weight_unit" readonly="1"/>
                     <field name="tf_pubk_no"/>
                     <field name="tf_import_export"/>
                 </group>
@@ -46,6 +49,9 @@
                 <field name="tf_customer_id" optional="show"/>
                 <field name="tf_consignee_partner_id" optional="hide"/>
                 <field name="tf_address_note" optional="show"/>
+                <field name="tf_container_serial_number" optional="show"/>
+                <field name="tf_total_weight" optional="hide"/>
+                <field name="tf_total_weight_unit" optional="hide"/>
                 <field name="tf_origin_sale_order_id" optional="show"/>
             </xpath>
         </field>
@@ -60,6 +66,7 @@
                 <field name="tf_customer_id"/>
                 <field name="tf_consignee_partner_id"/>
                 <field name="tf_address_note"/>
+                <field name="tf_container_serial_number"/>
                 <field name="tf_origin_sale_order_id"/>
             </xpath>
             <xpath expr="//group" position="inside">

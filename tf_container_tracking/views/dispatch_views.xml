@@ -23,14 +23,15 @@
                 <field name="dispatch_type"/>
                 <field name="sale_order_id"/>
                 <field name="sale_order_ids" widget="many2many_tags" optional="hide"/>
-                <field name="customer_id" optional="show"/>
-                <field name="contact_id" optional="show"/>
                 <field name="customer_reference" optional="hide"/>
                 <field name="container_number"/>
+                <field name="tf_container_serial_number" optional="show"/>
                 <field name="tf_ssl" optional="show"/>
                 <field name="tf_cutoff_date" optional="show"/>
                 <field name="tf_container_type" optional="show"/>
                 <field name="tf_pubk_no" optional="show"/>
+                <field name="tf_container_total_weight" optional="show"/>
+                <field name="tf_container_total_weight_unit" optional="show"/>
                 <field name="tf_import_export" optional="hide"/>
                 <field name="tf_origin" optional="hide"/>
                 <field name="driver_id"/>
@@ -88,14 +89,13 @@
                             <field name="dispatch_type"/>
                             <field name="sale_order_id"/>
                             <field name="sale_order_ids" widget="many2many_tags" readonly="1"/>
-                            <field name="customer_id" readonly="1"/>
-                            <field name="contact_id"/>
                             <field name="customer_reference" readonly="1"/>
                             <field name="container_plan_id"
                                    string="Container Number"
                                    context="{'tf_display_container_number': True}"
                                    domain="[('order_id', '=', sale_order_id), ('tf_is_container_product', '=', True)]"/>
                             <field name="container_number" invisible="1"/>
+                            <field name="tf_container_serial_number" readonly="1"/>
                             <field name="dispatch_date"/>
                         </group>
                         <group>
@@ -121,6 +121,8 @@
                         <field name="tf_pubk_no" readonly="1"/>
                         <field name="tf_container_weight" readonly="1"/>
                         <field name="tf_container_weight_unit" readonly="1"/>
+                        <field name="tf_container_total_weight" readonly="1"/>
+                        <field name="tf_container_total_weight_unit" readonly="1"/>
                         <field name="tf_import_export" readonly="1"/>
                     </group>
                     <group string="WhatsApp">
@@ -151,10 +153,9 @@
                 <field name="name"/>
                 <field name="sale_order_id"/>
                 <field name="sale_order_ids"/>
-                <field name="customer_id"/>
-                <field name="contact_id"/>
                 <field name="container_plan_id"/>
                 <field name="container_number"/>
+                <field name="tf_container_serial_number"/>
                 <field name="tf_ssl"/>
                 <field name="tf_cutoff_date"/>
                 <field name="tf_container_type"/>

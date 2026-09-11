@@ -143,6 +143,7 @@ class TestUpgradeSmokeFlow(TransactionCase):
             "tf_shipper_note": "Smoke shipper",
             "tf_consignee_note": "Smoke consignee",
             "tf_special_instructions": "Smoke handling note",
+            "tf_internal_notes": "Smoke internal note",
             "tag_ids": [(6, 0, tag.ids)],
         })
         container_line = self._create_so_line(sale_order, container_product, 2.0)
@@ -152,11 +153,14 @@ class TestUpgradeSmokeFlow(TransactionCase):
         self.assertEqual(len(container_wizard.line_ids), 2)
         container_lines = container_wizard.line_ids.sorted(lambda line: (line.sequence, line.id))
         container_lines[0].tf_address_note = "Smoke container C01 address"
+        container_lines[0].tf_container_serial_number = "SMOKE-CSN-001"
         container_lines[1].tf_address_note = "Smoke container C02 address"
+        container_lines[1].tf_container_serial_number = "SMOKE-CSN-002"
         container_wizard.action_apply()
         container_plans = container_line.tf_serial_plan_ids.sorted(lambda p: (p.sequence, p.id))
         self.assertEqual(container_plans.mapped("serial_name"), [f"{sale_order.name}-C01", f"{sale_order.name}-C02"])
         self.assertEqual(container_plans.mapped("tf_container_number"), [f"{sale_order.name}-C01", f"{sale_order.name}-C02"])
+        self.assertEqual(container_plans.mapped("tf_container_serial_number"), ["SMOKE-CSN-001", "SMOKE-CSN-002"])
         self.assertEqual(set(container_plans.mapped("tf_container_type")), {"40HC"})
         self.assertEqual(container_plans.mapped("tf_address_note"), ["Smoke container C01 address", "Smoke container C02 address"])
 
@@ -187,7 +191,7 @@ class TestUpgradeSmokeFlow(TransactionCase):
         self.assertEqual(set(case_plans.mapped("tf_weight_unit")), {"kg"})
         self.assertEqual(
             case_plans.mapped("tf_address_note"),
-            ["Smoke container C01 address", "Smoke container C01 address", "Smoke container C02 address"],
+            ["Smoke consignee", "Smoke consignee", "Smoke consignee"],
         )
 
         sale_order.action_confirm()
@@ -200,7 +204,11 @@ class TestUpgradeSmokeFlow(TransactionCase):
         self.assertEqual(case_plans.mapped("lot_id").mapped("tf_origin_sale_order_id"), sale_order)
         self.assertEqual(
             case_plans.mapped("lot_id").sorted(lambda lot: lot.name).mapped("tf_address_note"),
-            ["Smoke container C01 address", "Smoke container C01 address", "Smoke container C02 address"],
+            ["Smoke consignee", "Smoke consignee", "Smoke consignee"],
+        )
+        self.assertEqual(
+            container_plans.mapped("lot_id").sorted(lambda lot: lot.name).mapped("tf_container_serial_number"),
+            ["SMOKE-CSN-001", "SMOKE-CSN-002"],
         )
 
         selected_lots = case_plans[:2].mapped("lot_id")
@@ -218,6 +226,8 @@ class TestUpgradeSmokeFlow(TransactionCase):
         self.assertEqual(set(dispatch.delivery_order_id.move_line_ids.mapped("lot_id").ids), set(selected_lots.ids))
         self.assertIn("Special Instructions: Smoke handling note", dispatch.whatsapp_message_preview)
         self.assertIn("Tags: Smoke Priority", dispatch.whatsapp_message_preview)
+        self.assertNotIn("Customer:", dispatch.whatsapp_message_preview)
+        self.assertNotIn("Contact:", dispatch.whatsapp_message_preview)
 
         dispatch.action_send_whatsapp()
         self.assertTrue(dispatch.whatsapp_sent)
@@ -311,6 +321,7 @@ class TestUpgradeSmokeFlow(TransactionCase):
                 "tf_shipper_note",
                 "tf_consignee_note",
                 "tf_special_instructions",
+                "tf_internal_notes",
                 "tf_credit_state",
             ],
             "sale.order.template": [
@@ -319,6 +330,7 @@ class TestUpgradeSmokeFlow(TransactionCase):
                 "tf_shipper_note",
                 "tf_consignee_note",
                 "tf_special_instructions",
+                "tf_internal_notes",
             ],
             "product.template": [
                 "tf_container_type",
@@ -333,10 +345,38 @@ class TestUpgradeSmokeFlow(TransactionCase):
                 "internal_transfer_id",
                 "delivery_order_id",
                 "container_number",
+                "tf_container_serial_number",
+                "tf_container_total_weight",
+                "tf_container_total_weight_unit",
             ],
-            "tf.sale.serial.plan": ["tf_ssl", "tf_port_to_destuff"],
-            "stock.lot": ["tf_origin_sale_order_id", "tf_container_lot_id", "tf_ssl", "tf_port_to_destuff", "tf_address_note"],
-            "stock.move.line": ["tf_allowed_lot_ids", "tf_ssl", "tf_port_to_destuff", "tf_address_note"],
+            "tf.sale.serial.plan": [
+                "tf_ssl",
+                "tf_port_to_destuff",
+                "tf_customer_id",
+                "tf_address_partner_id",
+                "tf_container_serial_number",
+                "tf_total_weight",
+                "tf_total_weight_unit",
+            ],
+            "stock.lot": [
+                "tf_origin_sale_order_id",
+                "tf_container_lot_id",
+                "tf_ssl",
+                "tf_port_to_destuff",
+                "tf_address_partner_id",
+                "tf_address_note",
+                "tf_container_serial_number",
+                "tf_total_weight",
+                "tf_total_weight_unit",
+            ],
+            "stock.move.line": [
+                "tf_allowed_lot_ids",
+                "tf_ssl",
+                "tf_port_to_destuff",
+                "tf_address_partner_id",
+                "tf_address_note",
+                "tf_container_serial_number",
+            ],
         }
         for model_name, field_names in field_checks.items():
             model = self.env[model_name]
@@ -344,6 +384,8 @@ class TestUpgradeSmokeFlow(TransactionCase):
                 self.assertIn(field_name, model._fields, f"Missing field {model_name}.{field_name}")
         self.assertEqual(self.env["tf.sale.serial.plan"]._fields["tf_ssl"].type, "selection")
         self.assertEqual(self.env["tf.sale.serial.plan"]._fields["tf_port_to_destuff"].type, "selection")
+        self.assertEqual(self.env["tf.sale.serial.plan"]._fields["serial_name"].string, "File Number")
+        self.assertIn(("hold", "Hold"), self.env["tf.sale.serial.plan"]._fields["tf_internal_status"].selection)
 
     def _assert_critical_views_load(self):
         view_checks = [

@@ -169,6 +169,13 @@ class SaleOrderLine(models.Model):
         global_index = self._tf_container_serial_index_start() + int(local_index or 1) - 1
         return f"{order_name}-C{global_index:02d}"
 
+    def _tf_default_container_type(self):
+        self.ensure_one()
+        if not self._tf_is_container_line():
+            return False
+        product_template = self.product_id.product_tmpl_id
+        return product_template.tf_container_type or self.product_id.display_name or product_template.display_name
+
     @api.model
     def _tf_find_default_piece_product(self):
         Product = self.env["product.product"]

@@ -41,6 +41,10 @@ class SaleOrderTemplate(models.Model):
         string="Special Instructions",
         help="Default special request/instructions copied to quotations created from this template.",
     )
+    tf_internal_notes = fields.Text(
+        string="Internal Notes",
+        help="Default internal E4C notes copied to quotations created from this template. These notes are not printed for customers.",
+    )
 
     def _tf_partner_address_text(self, partner):
         if not partner:

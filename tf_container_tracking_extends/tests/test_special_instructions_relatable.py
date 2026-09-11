@@ -55,6 +55,8 @@ class TestSpecialInstructionsRelatable(TransactionCase):
         self.assertEqual(ticket.tf_sale_tag_ids, self.tag)
         self.assertIn("Special Instructions: Initial Special Instruction Note", ticket.whatsapp_message_preview)
         self.assertIn("Tags: Urgent Dispatch", ticket.whatsapp_message_preview)
+        self.assertNotIn("Customer:", ticket.whatsapp_message_preview)
+        self.assertNotIn("Contact:", ticket.whatsapp_message_preview)
 
         # 4. Check stock.picking
         incoming_type = self.env["stock.picking.type"].search([

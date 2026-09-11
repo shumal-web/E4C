@@ -2,7 +2,14 @@
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 
-from .sale_serial_plan import ORIGIN_SELECTION, SSL_SELECTION, normalize_tf_container_selection_values
+from .sale_serial_plan import (
+    ORIGIN_SELECTION,
+    SSL_SELECTION,
+    WEIGHT_UNIT_SELECTION,
+    convert_weight,
+    format_tf_partner_address,
+    normalize_tf_container_selection_values,
+)
 
 
 class TfSaleSerialWizard(models.TransientModel):
@@ -38,6 +45,11 @@ class TfSaleSerialWizard(models.TransientModel):
         compute="_compute_tf_allowed_container_plan_ids",
         string="Allowed Container Numbers",
     )
+    tf_allowed_address_partner_ids = fields.Many2many(
+        "res.partner",
+        compute="_compute_tf_allowed_address_partner_ids",
+        string="Allowed Addresses",
+    )
     tf_assign_length = fields.Float(string="Length")
     tf_assign_width = fields.Float(string="Width")
     tf_assign_height = fields.Float(string="Height")
@@ -46,18 +58,89 @@ class TfSaleSerialWizard(models.TransientModel):
         string="Dim Unit",
         default="cm",
     )
-    tf_assign_weight = fields.Float(string="Weight")
+    tf_assign_weight = fields.Float(string="Weight Included")
     tf_assign_weight_unit = fields.Selection(
         [("g", "g"), ("kg", "kg"), ("lb", "lb")],
         string="Weight Unit",
         default="kg",
     )
 
-    tf_assign_address_note = fields.Text(string="Address")
+    tf_assign_address_partner_id = fields.Many2one(
+        "res.partner",
+        string="Address",
+    )
+    tf_assign_address_note = fields.Text(string="Address Details")
+
+    def _tf_address_partner_options_for_order(self, order):
+        partners = self.env["res.partner"]
+        if not order:
+            return partners
+
+        base_partner = order.partner_id.commercial_partner_id or order.partner_id
+        if base_partner:
+            partners |= self.env["res.partner"].search([
+                "|",
+                ("id", "child_of", base_partner.id),
+                ("commercial_partner_id", "=", base_partner.id),
+            ])
+        partners |= (
+            order.partner_id
+            | order.partner_shipping_id
+            | order.partner_invoice_id
+            | order.tf_shipper_partner_id
+            | order.tf_consignee_partner_id
+            | order.tf_dispatch_contact_id
+        )
+        return partners.exists()
+
+    @api.depends(
+        "order_id",
+        "order_id.partner_id",
+        "order_id.partner_shipping_id",
+        "order_id.partner_invoice_id",
+        "order_id.tf_shipper_partner_id",
+        "order_id.tf_consignee_partner_id",
+        "order_id.tf_dispatch_contact_id",
+    )
+    def _compute_tf_allowed_address_partner_ids(self):
+        for wizard in self:
+            wizard.tf_allowed_address_partner_ids = wizard._tf_address_partner_options_for_order(wizard.order_id)
+
+    def _tf_default_address_partner_for_order(self, order, for_container=False):
+        if not order:
+            return self.env["res.partner"]
+        if for_container:
+            return (
+                order.tf_shipper_partner_id
+                or order.tf_consignee_partner_id
+            )
+        return (
+            order.tf_consignee_partner_id
+            or order.tf_shipper_partner_id
+        )
+
+    def _tf_default_address_note_for_order(self, order, for_container=False):
+        partner = self._tf_default_address_partner_for_order(order, for_container=for_container)
+        partner_note = format_tf_partner_address(partner)
+        if partner_note:
+            return partner_note
+        if for_container:
+            return order.tf_address_note or order.tf_consignee_note or order.tf_shipper_note or False
+        return order.tf_consignee_note or order.tf_address_note or order.tf_shipper_note or False
 
     def _tf_default_address_note(self):
         self.ensure_one()
-        return self.order_id.tf_consignee_note or self.order_id.tf_address_note or False
+        return self._tf_default_address_note_for_order(self.order_id)
+
+    def _tf_default_address_partner(self, for_container=False):
+        self.ensure_one()
+        return self._tf_default_address_partner_for_order(self.order_id, for_container=for_container)
+
+    @api.onchange("tf_assign_address_partner_id")
+    def _onchange_tf_assign_address_partner_id(self):
+        for wizard in self:
+            if wizard.tf_assign_address_partner_id:
+                wizard.tf_assign_address_note = format_tf_partner_address(wizard.tf_assign_address_partner_id)
 
     def _tf_cm_to_inches(self, value):
         return round((value or 0.0) / 2.54, 2)
@@ -275,20 +358,27 @@ class TfSaleSerialWizard(models.TransientModel):
             not is_container
             and sol.product_id.product_tmpl_id.tf_requires_container
         )
+        default_container_address_partner = self._tf_default_address_partner_for_order(sol.order_id, for_container=True)
+        default_piece_address_partner = self._tf_default_address_partner_for_order(sol.order_id)
+        default_container_address_note = self._tf_default_address_note_for_order(sol.order_id, for_container=True)
+        default_piece_address_note = self._tf_default_address_note_for_order(sol.order_id)
         line_commands = res.get("line_ids") or []
         if not line_commands and is_container and sol.product_id.tracking == "serial":
             target = int(sol.product_uom_qty or 0)
             for index in range(1, target + 1):
                 seeded_name = sol._tf_container_serial_seed(index)
+                container_type = sol._tf_default_container_type()
                 line_commands.append((0, 0, {
                     "sequence": index * 10,
                     "serial_name": seeded_name,
                     "tf_container_number": seeded_name,
                     "tf_internal_status": "for_approval",
                     "tf_container_status": "on_water",
+                    "tf_container_type": container_type,
                     "tf_weight_unit": "kg",
                     "tf_import_export": sol.order_id.tf_shipment_type,
-                    "tf_address_note": sol.order_id.tf_consignee_note or sol.order_id.tf_address_note or False,
+                    "tf_address_partner_id": default_container_address_partner.id or False,
+                    "tf_address_note": default_container_address_note,
                 }))
         if not line_commands:
             return res
@@ -296,7 +386,6 @@ class TfSaleSerialWizard(models.TransientModel):
         existing_count = len(existing_plans)
         sequence_map = {plan.sequence: plan for plan in existing_plans}
         serial_map = {plan.serial_name: plan for plan in existing_plans if plan.serial_name}
-        default_address_note = sol.order_id.tf_consignee_note or sol.order_id.tf_address_note or False
         assign_commands = []
         if allow_blank_serial:
             container_plans = sol._tf_container_plans_for_assignment()
@@ -312,6 +401,7 @@ class TfSaleSerialWizard(models.TransientModel):
                 }))
             if existing_plans:
                 sample_plan = existing_plans[:1]
+                assign_partner = sample_plan.tf_address_partner_id or default_piece_address_partner
                 res.update({
                     "tf_assign_length": sample_plan.tf_length,
                     "tf_assign_width": sample_plan.tf_width,
@@ -319,10 +409,12 @@ class TfSaleSerialWizard(models.TransientModel):
                     "tf_assign_dimension_unit": sample_plan.tf_dimension_unit or "cm",
                     "tf_assign_weight": sample_plan.tf_weight,
                     "tf_assign_weight_unit": sample_plan.tf_weight_unit or "kg",
-                    "tf_assign_address_note": sample_plan.tf_address_note or default_address_note,
+                    "tf_assign_address_partner_id": assign_partner.id or False,
+                    "tf_assign_address_note": sample_plan.tf_address_note or default_piece_address_note,
                 })
-            elif default_address_note:
-                res["tf_assign_address_note"] = default_address_note
+            elif default_piece_address_partner or default_piece_address_note:
+                res["tf_assign_address_partner_id"] = default_piece_address_partner.id or False
+                res["tf_assign_address_note"] = default_piece_address_note
 
         patched_commands = []
         for index, command in enumerate(line_commands, start=1):
@@ -337,6 +429,10 @@ class TfSaleSerialWizard(models.TransientModel):
                 vals["serial_name"] = seeded_name
                 vals.setdefault("tf_container_number", seeded_name)
                 vals.setdefault("tf_internal_status", "for_approval")
+            if is_container and plan and not plan.tf_container_type:
+                default_container_type = sol._tf_default_container_type()
+                if default_container_type:
+                    plan.tf_container_type = default_container_type
             elif allow_blank_serial and not plan:
                 vals["serial_name"] = False
 
@@ -346,32 +442,43 @@ class TfSaleSerialWizard(models.TransientModel):
                 vals["tf_dimension_unit"] = vals.get("tf_dimension_unit") or "cm"
                 vals["tf_weight_unit"] = vals.get("tf_weight_unit") or "kg"
 
+            default_address_partner = default_container_address_partner if is_container else default_piece_address_partner
+            selected_address_partner_id = (
+                plan.tf_address_partner_id.id
+                if plan and plan.tf_address_partner_id
+                else vals.get("tf_address_partner_id") or default_address_partner.id or False
+            )
+            selected_address_note = (
+                plan.tf_address_note
+                if plan
+                else vals.get("tf_address_note")
+                or format_tf_partner_address(self.env["res.partner"].browse(selected_address_partner_id))
+                or (default_container_address_note if is_container else default_piece_address_note)
+            )
             vals.update({
                 "plan_id": plan.id if plan else False,
                 "tf_container_plan_id": plan.tf_container_plan_id.id if plan and plan.tf_container_plan_id else False,
                 "tf_container_number": plan.tf_container_number if plan else vals.get("tf_container_number"),
+                "tf_container_serial_number": plan.tf_container_serial_number if plan else vals.get("tf_container_serial_number"),
                 "tf_internal_status": plan.tf_internal_status if plan else vals.get("tf_internal_status"),
                 "tf_port_to_destuff": plan.tf_port_to_destuff if plan else False,
-                    "tf_container_status": plan.tf_container_status if plan else vals.get("tf_container_status"),
-                    "tf_container_location": plan.tf_container_location if plan else False,
-                    "tf_eta": plan.tf_eta if plan else False,
-                    "tf_lfd": plan.tf_lfd if plan else False,
-                    "tf_cutoff_date": plan.tf_cutoff_date if plan else False,
-                    "tf_ssl": plan.tf_ssl if plan else False,
-                    "tf_container_type": (
-                        plan.tf_container_type
-                        if plan
-                        else (sol.product_id.product_tmpl_id.tf_container_type if is_container else False)
-                    ),
-                    "tf_chassis_no": plan.tf_chassis_no if plan else False,
-                    "tf_pubk_no": plan.tf_pubk_no if plan else False,
-                    "tf_import_export": plan.tf_import_export if plan else sol.order_id.tf_shipment_type,
-                    "tf_address_note": (
-                        plan.tf_address_note
-                        if plan
-                        else vals.get("tf_address_note") or default_address_note
-                    ),
-                })
+                "tf_container_status": plan.tf_container_status if plan else vals.get("tf_container_status"),
+                "tf_container_location": plan.tf_container_location if plan else False,
+                "tf_eta": plan.tf_eta if plan else False,
+                "tf_lfd": plan.tf_lfd if plan else False,
+                "tf_cutoff_date": plan.tf_cutoff_date if plan else False,
+                "tf_ssl": plan.tf_ssl if plan else False,
+                "tf_container_type": (
+                    plan.tf_container_type
+                    if plan
+                    else (sol._tf_default_container_type() if is_container else False)
+                ),
+                "tf_chassis_no": plan.tf_chassis_no if plan else False,
+                "tf_pubk_no": plan.tf_pubk_no if plan else False,
+                "tf_import_export": plan.tf_import_export if plan else sol.order_id.tf_shipment_type,
+                "tf_address_partner_id": selected_address_partner_id,
+                "tf_address_note": selected_address_note,
+            })
             if not is_container:
                 vals["tf_dimension_unit"] = vals.get("tf_dimension_unit") or "cm"
                 vals["tf_weight_unit"] = vals.get("tf_weight_unit") or "kg"
@@ -402,6 +509,7 @@ class TfSaleSerialWizard(models.TransientModel):
                             "serial_name": False,
                             "tf_dimension_unit": "cm",
                             "tf_weight_unit": "kg",
+                            "tf_address_partner_id": self._tf_default_address_partner().id or False,
                             "tf_address_note": self._tf_default_address_note(),
                         },
                     )
@@ -432,12 +540,14 @@ class TfSaleSerialWizard(models.TransientModel):
                         "sequence": index * 10,
                         "serial_name": seeded_name,
                         "tf_container_number": seeded_name,
+                        "tf_container_serial_number": False,
                         "tf_internal_status": "for_approval",
                         "tf_container_status": "on_water",
-                        "tf_container_type": self.product_id.product_tmpl_id.tf_container_type,
+                        "tf_container_type": self.order_line_id._tf_default_container_type(),
                         "tf_weight_unit": "kg",
                         "tf_import_export": self.order_id.tf_shipment_type,
-                        "tf_address_note": self._tf_default_address_note(),
+                        "tf_address_partner_id": self._tf_default_address_partner(for_container=True).id or False,
+                        "tf_address_note": self._tf_default_address_note_for_order(self.order_id, for_container=True),
                     },
                 )
             ]
@@ -453,14 +563,13 @@ class TfSaleSerialWizard(models.TransientModel):
             raise UserError(_("No container serials found in this order."))
         grouped_lines = {}
         ordered_lines = self.line_ids.sorted(lambda l: (l.sequence, l.id))
+        address_partner = self.tf_assign_address_partner_id or self._tf_default_address_partner()
+        address_note = self.tf_assign_address_note or format_tf_partner_address(address_partner) or self._tf_default_address_note()
         for index, line in enumerate(ordered_lines):
             container_plan = container_plans[index % len(container_plans)]
             line.tf_container_plan_id = container_plan
-            line.tf_address_note = (
-                container_plan.tf_address_note
-                or self.tf_assign_address_note
-                or self._tf_default_address_note()
-            )
+            line.tf_address_partner_id = address_partner
+            line.tf_address_note = address_note
             grouped_lines.setdefault(container_plan.id, self.env["tf.sale.serial.wizard.line"])
             grouped_lines[container_plan.id] |= line
 
@@ -496,14 +605,11 @@ class TfSaleSerialWizard(models.TransientModel):
         new_commands = []
         line_index = 0
         container_index_by_id = self._tf_container_index_map()
+        address_partner = self.tf_assign_address_partner_id or self._tf_default_address_partner()
+        address_note = self.tf_assign_address_note or format_tf_partner_address(address_partner) or self._tf_default_address_note()
         for assign_line in container_lines:
             total_cases = int(assign_line.case_qty or 0)
             container_index = container_index_by_id.get(assign_line.container_plan_id.id, 1)
-            address_note = (
-                assign_line.container_plan_id.tf_address_note
-                or self.tf_assign_address_note
-                or self._tf_default_address_note()
-            )
             for case_index in range(1, total_cases + 1):
                 plan = existing_plans[line_index] if line_index < len(existing_plans) else False
                 vals = {
@@ -525,6 +631,7 @@ class TfSaleSerialWizard(models.TransientModel):
                     "tf_weight_unit": self.tf_assign_weight_unit or "kg",
                     "tf_storage_rate": plan.tf_storage_rate if plan else False,
                     "tf_location_note": plan.tf_location_note if plan else False,
+                    "tf_address_partner_id": address_partner.id or False,
                     "tf_address_note": address_note,
                 }
                 new_commands.append((0, 0, vals))
@@ -554,7 +661,7 @@ class TfSaleSerialWizard(models.TransientModel):
         for line in wizard_lines:
             allow_blank_serial = bool(not self.tf_is_container_product and self.tf_requires_container)
             if not line.serial_name and not allow_blank_serial:
-                raise UserError(_("Serial Number cannot be empty."))
+                raise UserError(_("File Number cannot be empty."))
             if line.tf_container_plan_id:
                 if line.tf_container_plan_id.order_id != self.order_id:
                     raise UserError(_("Container serial must belong to the same sales order."))
@@ -579,6 +686,7 @@ class TfSaleSerialWizard(models.TransientModel):
         existing_by_serial = {plan.serial_name: plan for plan in existing_plans if plan.serial_name}
 
         for line in wizard_lines:
+            line_address_note = line.tf_address_note or format_tf_partner_address(line.tf_address_partner_id)
             values = {
                 "sequence": line.sequence,
                 "serial_name": line.serial_name,
@@ -591,9 +699,11 @@ class TfSaleSerialWizard(models.TransientModel):
                 "tf_weight_unit": line.tf_weight_unit,
                 "tf_storage_rate": line.tf_storage_rate,
                 "tf_location_note": line.tf_location_note,
-                "tf_address_note": line.tf_address_note,
+                "tf_address_partner_id": line.tf_address_partner_id.id or False,
+                "tf_address_note": line_address_note,
                 "tf_container_plan_id": False if self.tf_is_container_product else line.tf_container_plan_id.id,
                 "tf_container_number": line.tf_container_number or (line.serial_name if self.tf_is_container_product else False),
+                "tf_container_serial_number": line.tf_container_serial_number,
                 "tf_internal_status": line.tf_internal_status,
                 "tf_port_to_destuff": line.tf_port_to_destuff,
                 "tf_container_status": line.tf_container_status,
@@ -607,6 +717,8 @@ class TfSaleSerialWizard(models.TransientModel):
                 "tf_pubk_no": line.tf_pubk_no,
                 "tf_import_export": line.tf_import_export,
             }
+            if self.tf_is_container_product and not values.get("tf_container_type"):
+                values["tf_container_type"] = self.order_line_id._tf_default_container_type()
             if self.tf_is_container_product:
                 values["tf_weight_unit"] = values.get("tf_weight_unit") or "kg"
             else:
@@ -646,7 +758,7 @@ class TfSaleSerialWizard(models.TransientModel):
 class TfSaleSerialWizardLine(models.TransientModel):
     _inherit = "tf.sale.serial.wizard.line"
 
-    serial_name = fields.Char(string="Serial Number", required=False)
+    serial_name = fields.Char(string="File Number", required=False)
 
     plan_id = fields.Many2one("tf.sale.serial.plan", string="Source Plan", readonly=True)
     order_id = fields.Many2one(related="wizard_id.order_id", readonly=True)
@@ -658,9 +770,11 @@ class TfSaleSerialWizardLine(models.TransientModel):
     )
 
     tf_container_number = fields.Char(string="Container #")
+    tf_container_serial_number = fields.Char(string="Container Serial Number")
     tf_internal_status = fields.Selection(
         [
             ("for_approval", "For Approval"),
+            ("hold", "Hold"),
             ("hold_ssl", "Hold SSL"),
             ("hold_cbsa", "Hold CBSA"),
             ("tracking", "Tracking"),
@@ -692,7 +806,19 @@ class TfSaleSerialWizardLine(models.TransientModel):
     tf_container_type = fields.Char(string="Type")
     tf_chassis_no = fields.Char(string="Chassis #")
     tf_pubk_no = fields.Char(string="PU/BK #")
-    tf_address_note = fields.Text(string="Address")
+    tf_address_partner_id = fields.Many2one("res.partner", string="Address")
+    tf_address_note = fields.Text(string="Address Snapshot")
+    tf_total_weight = fields.Float(
+        string="Total Weight",
+        compute="_compute_tf_total_weight",
+        readonly=True,
+    )
+    tf_total_weight_unit = fields.Selection(
+        WEIGHT_UNIT_SELECTION,
+        string="Total Weight Unit",
+        compute="_compute_tf_total_weight",
+        readonly=True,
+    )
     tf_import_export = fields.Selection(
         [
             ("import", "Import"),
@@ -701,12 +827,59 @@ class TfSaleSerialWizardLine(models.TransientModel):
         string="Import/Export",
     )
 
+    @api.depends(
+        "wizard_is_container_product",
+        "tf_weight",
+        "tf_weight_unit",
+        "plan_id.tf_piece_plan_ids.tf_weight",
+        "plan_id.tf_piece_plan_ids.tf_weight_unit",
+        "tf_container_plan_id.tf_piece_plan_ids.tf_weight",
+        "tf_container_plan_id.tf_piece_plan_ids.tf_weight_unit",
+    )
+    def _compute_tf_total_weight(self):
+        for line in self:
+            if not line.wizard_is_container_product:
+                line.tf_total_weight = line.tf_weight or 0.0
+                line.tf_total_weight_unit = line.tf_weight_unit or False
+                continue
+
+            container_plan = line.plan_id or line.tf_container_plan_id
+            piece_plans = container_plan.tf_piece_plan_ids.filtered(
+                lambda piece: not piece.tf_is_container_product
+            ) if container_plan else self.env["tf.sale.serial.plan"]
+            first_piece_unit = next((piece.tf_weight_unit for piece in piece_plans if piece.tf_weight_unit), False)
+            total_unit = line.tf_weight_unit or first_piece_unit or "kg"
+            total = convert_weight(line.tf_weight, line.tf_weight_unit or total_unit, total_unit)
+            for piece in piece_plans:
+                total += convert_weight(piece.tf_weight, piece.tf_weight_unit or total_unit, total_unit)
+            line.tf_total_weight = total
+            line.tf_total_weight_unit = total_unit
+
+    @api.onchange("tf_address_partner_id")
+    def _onchange_tf_address_partner_id(self):
+        for line in self:
+            if line.tf_address_partner_id:
+                line.tf_address_note = format_tf_partner_address(line.tf_address_partner_id)
+
     @api.model_create_multi
     def create(self, vals_list):
-        return super().create([normalize_tf_container_selection_values(dict(vals)) for vals in vals_list])
+        prepared_vals = []
+        for vals in vals_list:
+            vals = normalize_tf_container_selection_values(dict(vals))
+            if vals.get("tf_address_partner_id") and not vals.get("tf_address_note"):
+                vals["tf_address_note"] = format_tf_partner_address(
+                    self.env["res.partner"].browse(vals["tf_address_partner_id"])
+                )
+            prepared_vals.append(vals)
+        return super().create(prepared_vals)
 
     def write(self, vals):
-        return super().write(normalize_tf_container_selection_values(dict(vals)))
+        vals = normalize_tf_container_selection_values(dict(vals))
+        if vals.get("tf_address_partner_id") and "tf_address_note" not in vals:
+            vals["tf_address_note"] = format_tf_partner_address(
+                self.env["res.partner"].browse(vals["tf_address_partner_id"])
+            )
+        return super().write(vals)
 
 
 class TfSaleSerialWizardAssignLine(models.TransientModel):

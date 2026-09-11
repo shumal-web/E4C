@@ -30,7 +30,7 @@
                 <field name="tf_width" string="W" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_height" string="H" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_dimension_unit" string="Units" readonly="not tf_allow_receipt_edit"/>
-                <field name="tf_weight" string="Weight" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_weight" string="Weight Included" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_weight_unit" string="Units" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_storage_rate" string="Storage Rate" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_location_note" string="Location" readonly="not tf_allow_receipt_edit"/>

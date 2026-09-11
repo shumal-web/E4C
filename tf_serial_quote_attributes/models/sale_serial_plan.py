@@ -14,7 +14,7 @@ class TfSaleSerialPlan(models.Model):
     product_id = fields.Many2one(related="order_line_id.product_id", store=True, readonly=True)
     company_id = fields.Many2one(related="order_id.company_id", store=True, readonly=True)
 
-    serial_name = fields.Char(string="Serial Number", required=True, index=True)
+    serial_name = fields.Char(string="File Number", required=True, index=True)
     tf_description = fields.Char(string="Description")
 
     # Attributes (can be blank)
@@ -26,7 +26,7 @@ class TfSaleSerialPlan(models.Model):
         string="Dim Unit",
     )
 
-    tf_weight = fields.Float(string="Weight")
+    tf_weight = fields.Float(string="Weight Included")
     tf_weight_unit = fields.Selection(
         [("g", "g"), ("kg", "kg"), ("lb", "lb")],
         string="Weight Unit",

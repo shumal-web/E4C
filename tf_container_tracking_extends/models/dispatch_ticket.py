@@ -20,8 +20,6 @@ class TfDispatchTicket(models.Model):
     @api.depends(
         "sale_order_id",
         "sale_order_ids",
-        "customer_id",
-        "contact_id",
         "container_plan_id",
         "dispatch_date",
         "trailer_destination_location",

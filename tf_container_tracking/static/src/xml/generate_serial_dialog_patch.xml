@@ -43,7 +43,7 @@
             </div>
             <div class="row mb-2">
                 <div class="col">
-                    <label class="o_form_label" for="tf_weight_0">Weight</label>
+                    <label class="o_form_label" for="tf_weight_0">Weight Included</label>
                 </div>
                 <div class="col-9">
                     <input inputmode="decimal" class="o_input" t-ref="tfWeight" id="tf_weight_0" type="text"/>

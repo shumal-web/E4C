@@ -40,7 +40,7 @@
                                     </td>
                                 </tr>
                                 <tr>
-                                    <th>Weight</th>
+                                    <th>Weight Included</th>
                                     <td>
                                         <t t-out="attrs_src.tf_weight or ''"/>
                                         <t t-if="attrs_src.tf_weight_unit">
@@ -66,4 +66,3 @@
         </t>
     </template>
 </odoo>
-

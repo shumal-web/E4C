@@ -14,7 +14,7 @@
                         <tr><th>Width</th><td><span t-esc="lot.tf_width"/> <span t-esc="lot.tf_dimension_unit"/></td></tr>
                         <tr><th>Height</th><td><span t-esc="lot.tf_height"/> <span t-esc="lot.tf_dimension_unit"/></td></tr>
 
-                        <tr><th>Weight</th><td><span t-esc="lot.tf_weight"/> <span t-esc="lot.tf_weight_unit"/></td></tr>
+                        <tr><th>Weight Included</th><td><span t-esc="lot.tf_weight"/> <span t-esc="lot.tf_weight_unit"/></td></tr>
                         <tr><th>Storage Rate</th><td><span t-esc="lot.tf_storage_rate"/></td></tr>
                         <tr><th>Location (Text)</th><td><span t-esc="lot.tf_location_note"/></td></tr>
 

@@ -300,7 +300,7 @@
                     <th style="width: 6%;">#of<br/>Pieces</th>
                     <th style="width: 18%;">Description of Pieces</th>
                     <th style="width: 21%;">Dimension(L x W x H)</th>
-                    <th style="width: 14%;">Weight</th>
+                    <th style="width: 14%;">Weight Included</th>
                     <th style="width: 8%;">Location</th>
                     <th style="width: 6%;">#of<br/>Pieces</th>
                     <th style="width: 8%;">Pictures</th>
@@ -389,6 +389,10 @@
                             <tr>
                                 <td>Customer PO:</td>
                                 <td><span t-out="doc._e4c_report_customer_reference()"/></td>
+                            </tr>
+                            <tr>
+                                <td>Container #:</td>
+                                <td><span t-out="doc._e4c_report_container_number()"/></td>
                             </tr>
                         </table>
                     </td>
@@ -568,6 +572,10 @@
                                         <td><span t-out="doc.tf_container_weight"/> <span t-out="doc.tf_container_weight_unit"/></td>
                                     </tr>
                                     <tr>
+                                        <td>Total Weight:</td>
+                                        <td><span t-out="doc.tf_container_total_weight"/> <span t-out="doc.tf_container_total_weight_unit"/></td>
+                                    </tr>
+                                    <tr>
                                         <td>Seal #:</td>
                                         <td></td>
                                     </tr>
@@ -636,7 +644,7 @@
                                     <th style="width:13%;">Number of<br/>Packages</th>
                                     <th style="width:58%;">Type of Packages</th>
                                     <th style="width:9%;">Total Quantity<br/>(mass,volume<br/>or activity)</th>
-                                    <th style="width:9%;">Weight<br/>(subject to<br/>correction)</th>
+                                    <th style="width:9%;">Weight Included<br/>(subject to<br/>correction)</th>
                                     <th style="width:11%;">Class or<br/>Rate</th>
                                 </tr>
                             </thead>
@@ -709,7 +717,7 @@
                         <div class="e4c-label-row"><span class="e4c-label-key">Customer:</span> <span t-out="label.get('customer')"/></div>
                         <div class="e4c-label-row"><span class="e4c-label-key">Date:</span> <span t-out="label.get('date')"/></div>
                         <div class="e4c-label-row"><span class="e4c-label-key">Container #:</span> <span t-out="label.get('container')"/></div>
-                        <div class="e4c-label-row"><span class="e4c-label-key">Serial Number:</span> <span t-out="label.get('serial')"/></div>
+                        <div class="e4c-label-row"><span class="e4c-label-key">File Number:</span> <span t-out="label.get('serial')"/></div>
                         <div class="e4c-label-row"><span class="e4c-label-key">Description:</span> <span t-out="label.get('description')"/></div>
                         <div class="e4c-label-piece">PIECE <span t-out="label.get('piece_index')"/> OF <span t-out="label.get('piece_total')"/></div>
                     </div>

@@ -9,6 +9,9 @@ from .sale_serial_plan import (
     CONTAINER_STATUS_SELECTION,
     ORIGIN_SELECTION,
     SSL_SELECTION,
+    WEIGHT_UNIT_SELECTION,
+    convert_weight,
+    format_tf_partner_address,
     normalize_tf_container_selection_values,
 )
 
@@ -55,7 +58,26 @@ class StockLot(models.Model):
         store=True,
         readonly=True,
     )
-    tf_address_note = fields.Text(string="Address")
+    tf_address_note = fields.Text(string="Address Snapshot")
+    tf_address_partner_id = fields.Many2one("res.partner", string="Address", index=True)
+    tf_weight = fields.Float(string="Tare / Piece Weight")
+    tf_piece_lot_ids = fields.One2many(
+        "stock.lot",
+        "tf_container_lot_id",
+        string="Assigned Piece Serials",
+    )
+    tf_total_weight = fields.Float(
+        string="Total Weight",
+        compute="_compute_tf_total_weight",
+        store=True,
+        help="For container lots, this is tare weight plus the weight of all linked piece lots.",
+    )
+    tf_total_weight_unit = fields.Selection(
+        WEIGHT_UNIT_SELECTION,
+        string="Total Weight Unit",
+        compute="_compute_tf_total_weight",
+        store=True,
+    )
 
     tf_is_container_lot = fields.Boolean(
         related="product_id.product_tmpl_id.tf_is_container",
@@ -67,6 +89,7 @@ class StockLot(models.Model):
         ondelete="set null",
         index=True,
     )
+    tf_container_serial_number = fields.Char(string="Container Serial Number", index=True)
     tf_internal_status = fields.Selection(
         INTERNAL_STATUS_SELECTION,
         string="Internal Status",
@@ -96,10 +119,48 @@ class StockLot(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        return super().create([normalize_tf_container_selection_values(dict(vals)) for vals in vals_list])
+        prepared_vals = []
+        for vals in vals_list:
+            vals = normalize_tf_container_selection_values(dict(vals))
+            if vals.get("tf_address_partner_id") and not vals.get("tf_address_note"):
+                vals["tf_address_note"] = format_tf_partner_address(
+                    self.env["res.partner"].browse(vals["tf_address_partner_id"])
+                )
+            prepared_vals.append(vals)
+        return super().create(prepared_vals)
 
     def write(self, vals):
-        return super().write(normalize_tf_container_selection_values(dict(vals)))
+        vals = normalize_tf_container_selection_values(dict(vals))
+        if vals.get("tf_address_partner_id") and "tf_address_note" not in vals:
+            vals["tf_address_note"] = format_tf_partner_address(
+                self.env["res.partner"].browse(vals["tf_address_partner_id"])
+            )
+        return super().write(vals)
+
+    @api.depends(
+        "tf_is_container_lot",
+        "tf_weight",
+        "tf_weight_unit",
+        "tf_piece_lot_ids.tf_weight",
+        "tf_piece_lot_ids.tf_weight_unit",
+    )
+    def _compute_tf_total_weight(self):
+        for lot in self:
+            if not lot.tf_is_container_lot:
+                lot.tf_total_weight = lot.tf_weight or 0.0
+                lot.tf_total_weight_unit = lot.tf_weight_unit or False
+                continue
+
+            first_piece_unit = next(
+                (piece.tf_weight_unit for piece in lot.tf_piece_lot_ids if piece.tf_weight_unit),
+                False,
+            )
+            total_unit = lot.tf_weight_unit or first_piece_unit or "kg"
+            total = convert_weight(lot.tf_weight, lot.tf_weight_unit or total_unit, total_unit)
+            for piece in lot.tf_piece_lot_ids:
+                total += convert_weight(piece.tf_weight, piece.tf_weight_unit or total_unit, total_unit)
+            lot.tf_total_weight = total
+            lot.tf_total_weight_unit = total_unit
 
     @api.constrains("tf_container_lot_id")
     def _check_tf_container_lot_id(self):
@@ -246,6 +307,11 @@ class StockLot(models.Model):
             container_plan = lot_to_container_plan.get(lot.id)
             serial_plan = lot_to_serial_plan.get(lot.id)
             move = move_by_group[(lot.product_id.id, container_plan.id or 0)]
+            address_partner = (
+                lot.tf_address_partner_id
+                or (serial_plan.tf_address_partner_id if serial_plan else self.env["res.partner"])
+                or (container_plan.tf_address_partner_id if container_plan else self.env["res.partner"])
+            )
             self.env["stock.move.line"].create(
                 {
                     "move_id": move.id,
@@ -259,6 +325,7 @@ class StockLot(models.Model):
                     "lot_id": lot.id,
                     "tf_sale_serial_plan_id": serial_plan.id if serial_plan else False,
                     "tf_container_plan_id": container_plan.id or False,
+                    "tf_container_serial_number": container_plan.tf_container_serial_number if container_plan else False,
                     "tf_description": lot.tf_description,
                     "tf_length": lot.tf_length,
                     "tf_width": lot.tf_width,
@@ -268,6 +335,7 @@ class StockLot(models.Model):
                     "tf_weight_unit": lot.tf_weight_unit,
                     "tf_storage_rate": lot.tf_storage_rate,
                     "tf_location_note": lot.tf_location_note,
+                    "tf_address_partner_id": address_partner.id or False,
                     "tf_address_note": lot.tf_address_note
                     or (serial_plan.tf_address_note if serial_plan else False)
                     or (container_plan.tf_address_note if container_plan else False),
@@ -346,6 +414,11 @@ class StockLot(models.Model):
             container_plan = lot_to_container_plan.get(lot.id)
             serial_plan = lot_to_serial_plan.get(lot.id)
             move = move_by_group[(lot.product_id.id, container_plan.id or 0)]
+            address_partner = (
+                lot.tf_address_partner_id
+                or (serial_plan.tf_address_partner_id if serial_plan else self.env["res.partner"])
+                or (container_plan.tf_address_partner_id if container_plan else self.env["res.partner"])
+            )
             self.env["stock.move.line"].create(
                 {
                     "move_id": move.id,
@@ -359,6 +432,7 @@ class StockLot(models.Model):
                     "lot_id": lot.id,
                     "tf_sale_serial_plan_id": serial_plan.id if serial_plan else False,
                     "tf_container_plan_id": container_plan.id or False,
+                    "tf_container_serial_number": container_plan.tf_container_serial_number if container_plan else False,
                     "tf_description": lot.tf_description,
                     "tf_length": lot.tf_length,
                     "tf_width": lot.tf_width,
@@ -368,6 +442,7 @@ class StockLot(models.Model):
                     "tf_weight_unit": lot.tf_weight_unit,
                     "tf_storage_rate": lot.tf_storage_rate,
                     "tf_location_note": lot.tf_location_note,
+                    "tf_address_partner_id": address_partner.id or False,
                     "tf_address_note": lot.tf_address_note
                     or (serial_plan.tf_address_note if serial_plan else False)
                     or (container_plan.tf_address_note if container_plan else False),

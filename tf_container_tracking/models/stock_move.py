@@ -25,7 +25,7 @@ class StockMove(models.Model):
         )
         prefix = False
         if container_plan:
-            prefix = container_plan.serial_name or container_plan.tf_container_number or False
+            prefix = container_plan.tf_container_number or container_plan.serial_name or False
             if prefix and not prefix.endswith("/"):
                 prefix = "%s/" % prefix
         product_template = self.product_id.product_tmpl_id
@@ -80,6 +80,10 @@ class StockMove(models.Model):
                     values["tf_storage_rate"] = template_line.tf_storage_rate
                 if not values.get("tf_location_note"):
                     values["tf_location_note"] = template_line.tf_location_note
+                if template_line.tf_address_partner_id and not values.get("tf_address_partner_id"):
+                    values["tf_address_partner_id"] = self._tf_format_m2o_for_web(
+                        "tf_address_partner_id", template_line.tf_address_partner_id
+                    )
                 if not values.get("tf_address_note"):
                     values["tf_address_note"] = template_line.tf_address_note
             for key, value in attrs.items():

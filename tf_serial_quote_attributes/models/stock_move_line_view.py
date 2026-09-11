@@ -73,7 +73,7 @@ class StockMoveLine(models.Model):
             ('tf_width', 'W'),
             ('tf_height', 'H'),
             ('tf_dimension_unit', 'Units'),
-            ('tf_weight', 'Weight'),
+            ('tf_weight', 'Weight Included'),
             ('tf_weight_unit', 'Units'),
             ('tf_storage_rate', 'Storage Rate'),
             ('tf_location_note', 'Location'),

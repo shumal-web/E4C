@@ -29,6 +29,12 @@ class StockPicking(models.Model):
         readonly=True,
         string="Container #",
     )
+    tf_container_serial_number = fields.Char(
+        related="tf_container_plan_id.tf_container_serial_number",
+        store=True,
+        readonly=True,
+        string="Container Serial Number",
+    )
     tf_flow_kind = fields.Selection(
         [
             ("import_receipt", "Import Receipt"),
@@ -127,6 +133,7 @@ class StockPicking(models.Model):
             and not ml.tf_weight_unit
             and not ml.tf_storage_rate
             and not ml.tf_location_note
+            and not ml.tf_address_partner_id
             and not ml.tf_address_note
         )
         placeholders.unlink()
@@ -154,6 +161,7 @@ class StockPicking(models.Model):
             "tf_weight_unit": attribute_source.tf_weight_unit,
             "tf_storage_rate": attribute_source.tf_storage_rate,
             "tf_location_note": attribute_source.tf_location_note,
+            "tf_address_partner_id": attribute_source.tf_address_partner_id.id or False,
             "tf_address_note": attribute_source.tf_address_note,
         }
         if piece_plan.lot_id:
@@ -260,7 +268,9 @@ class StockPicking(models.Model):
                     "tf_weight_unit": plan.tf_weight_unit,
                     "tf_storage_rate": plan.tf_storage_rate,
                     "tf_location_note": plan.tf_location_note,
+                    "tf_address_partner_id": plan.tf_address_partner_id.id or False,
                     "tf_address_note": plan.tf_address_note,
+                    "tf_container_serial_number": plan.tf_container_serial_number,
                     "tf_internal_status": plan.tf_internal_status,
                     "tf_port_to_destuff": plan.tf_port_to_destuff,
                     "tf_container_status": plan.tf_container_status,
@@ -333,7 +343,9 @@ class StockPicking(models.Model):
                 "tf_weight_unit": lot.tf_weight_unit or plan.tf_weight_unit,
                 "tf_storage_rate": lot.tf_storage_rate or plan.tf_storage_rate,
                 "tf_location_note": lot.tf_location_note or plan.tf_location_note,
+                "tf_address_partner_id": (lot.tf_address_partner_id or plan.tf_address_partner_id).id or False,
                 "tf_address_note": lot.tf_address_note or plan.tf_address_note,
+                "tf_container_serial_number": lot.tf_container_serial_number or plan.tf_container_serial_number,
             }
         )
         return picking
@@ -411,7 +423,9 @@ class StockPicking(models.Model):
                 "tf_weight_unit": lot.tf_weight_unit or plan.tf_weight_unit,
                 "tf_storage_rate": lot.tf_storage_rate or plan.tf_storage_rate,
                 "tf_location_note": lot.tf_location_note or plan.tf_location_note,
+                "tf_address_partner_id": (lot.tf_address_partner_id or plan.tf_address_partner_id).id or False,
                 "tf_address_note": lot.tf_address_note or plan.tf_address_note,
+                "tf_container_serial_number": lot.tf_container_serial_number or plan.tf_container_serial_number,
                 "tf_internal_status": plan.tf_internal_status,
                 "tf_port_to_destuff": plan.tf_port_to_destuff,
                 "tf_container_status": plan.tf_container_status,
@@ -492,13 +506,17 @@ class StockPicking(models.Model):
                         "tf_weight_unit": source.tf_weight_unit,
                         "tf_storage_rate": source.tf_storage_rate,
                         "tf_location_note": source.tf_location_note,
+                        "tf_address_partner_id": source.tf_address_partner_id.id or False,
                         "tf_address_note": source.tf_address_note,
+                        "tf_container_serial_number": source.tf_container_serial_number if serial_plan.tf_is_container_product else False,
                     }
                 )
         for picking in self.filtered(lambda p: p.picking_type_code == "incoming"):
             for move_line in picking.move_line_ids.filtered(lambda ml: ml.tf_sale_serial_plan_id):
                 serial_plan = move_line.tf_sale_serial_plan_id
                 source = serial_plan.lot_id or serial_plan
+                if move_line.tf_address_partner_id != source.tf_address_partner_id:
+                    move_line.tf_address_partner_id = source.tf_address_partner_id.id or False
                 if move_line.tf_address_note != source.tf_address_note:
                     move_line.tf_address_note = source.tf_address_note
                 if serial_plan.tf_is_container_product:
@@ -515,6 +533,7 @@ class StockPicking(models.Model):
                         "tf_chassis_no": serial_plan.tf_chassis_no,
                         "tf_pubk_no": serial_plan.tf_pubk_no,
                         "tf_import_export": serial_plan.tf_import_export,
+                        "tf_container_serial_number": serial_plan.tf_container_serial_number,
                     })
                 if move_line.tf_container_plan_id:
                     continue
@@ -546,7 +565,9 @@ class StockPicking(models.Model):
                         "tf_weight_unit": lot.tf_weight_unit,
                         "tf_storage_rate": lot.tf_storage_rate,
                         "tf_location_note": lot.tf_location_note,
+                        "tf_address_partner_id": lot.tf_address_partner_id.id or False,
                         "tf_address_note": lot.tf_address_note,
+                        "tf_container_serial_number": lot.tf_container_serial_number,
                     }
                 )
         return res
@@ -581,7 +602,9 @@ class StockPicking(models.Model):
                         "tf_weight_unit": lot.tf_weight_unit,
                         "tf_storage_rate": lot.tf_storage_rate,
                         "tf_location_note": lot.tf_location_note,
+                        "tf_address_partner_id": lot.tf_address_partner_id.id or False,
                         "tf_address_note": lot.tf_address_note,
+                        "tf_container_serial_number": lot.tf_container_serial_number,
                     }
                 )
 
@@ -609,13 +632,17 @@ class StockPicking(models.Model):
                         "tf_chassis_no": move_line.tf_chassis_no,
                         "tf_pubk_no": move_line.tf_pubk_no,
                         "tf_import_export": move_line.tf_import_export,
+                        "tf_address_partner_id": move_line.tf_address_partner_id.id or False,
                         "tf_address_note": move_line.tf_address_note,
+                        "tf_container_serial_number": move_line.tf_container_serial_number,
                     }
                     move_line.lot_id.write(container_vals)
                     if serial_plan and serial_plan.tf_is_container_product:
                         serial_plan.write(container_vals)
                 elif serial_plan:
+                    serial_plan.tf_address_partner_id = move_line.tf_address_partner_id.id or False
                     serial_plan.tf_address_note = move_line.tf_address_note
+                    move_line.lot_id.tf_address_partner_id = move_line.tf_address_partner_id.id or False
                     move_line.lot_id.tf_address_note = move_line.tf_address_note
 
                 if serial_plan and move_line.tf_container_plan_id and serial_plan.tf_container_plan_id != move_line.tf_container_plan_id:

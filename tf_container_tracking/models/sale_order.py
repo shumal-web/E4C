@@ -69,6 +69,10 @@ class SaleOrder(models.Model):
     tf_special_instructions = fields.Text(
         string="Special Instructions",
     )
+    tf_internal_notes = fields.Text(
+        string="Internal Notes",
+        help="Internal E4C notes. These are not printed on the customer quote.",
+    )
     tf_credit_state = fields.Selection(
         [
             ("active", "Active"),
@@ -252,6 +256,7 @@ class SaleOrder(models.Model):
                 "tf_shipper_note": "tf_shipper_note",
                 "tf_consignee_note": "tf_consignee_note",
                 "tf_special_instructions": "tf_special_instructions",
+                "tf_internal_notes": "tf_internal_notes",
             }
             for order_field, template_field in template_fields.items():
                 value = template[template_field]
@@ -399,7 +404,7 @@ class SaleOrder(models.Model):
                     missing = range(len(existing) + 1, target + 1)
                 for index in missing:
                     seeded_name = line._tf_container_serial_seed(index)
-                    product_template = line.product_id.product_tmpl_id
+                    container_type = line._tf_default_container_type()
                     plan_model.create(
                         {
                             "order_id": order.id,
@@ -409,13 +414,14 @@ class SaleOrder(models.Model):
                             "tf_container_number": seeded_name,
                             "tf_internal_status": internal_status,
                             "tf_container_status": "on_water" if order.tf_shipment_type == "import" else "ready",
-                            "tf_container_type": product_template.tf_container_type,
+                            "tf_container_type": container_type,
                             "tf_import_export": order.tf_shipment_type,
                         }
                     )
                 existing.filtered(lambda p: not p.tf_import_export).write({"tf_import_export": order.tf_shipment_type})
-                existing.filtered(lambda p: not p.tf_container_type and line.product_id.product_tmpl_id.tf_container_type).write(
-                    {"tf_container_type": line.product_id.product_tmpl_id.tf_container_type}
+                container_type = line._tf_default_container_type()
+                existing.filtered(lambda p: not p.tf_container_type and container_type).write(
+                    {"tf_container_type": container_type}
                 )
                 existing.filtered(lambda p: p.tf_internal_status != internal_status).with_context(
                     tf_auto_internal_status=True

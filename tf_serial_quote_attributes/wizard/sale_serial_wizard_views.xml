@@ -16,7 +16,7 @@
                     <!-- Odoo 19: use <list>, not <tree> -->
                     <list editable="bottom">
                         <field name="sequence"/>
-                        <field name="serial_name"/>
+                        <field name="serial_name" string="File Number"/>
                         <field name="tf_description"/>
                         <field name="tf_length"/>
                         <field name="tf_width"/>

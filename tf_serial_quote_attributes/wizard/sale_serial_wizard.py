@@ -108,7 +108,7 @@ class TfSaleSerialWizard(models.TransientModel):
         vals_list = []
         for wl in self.line_ids.sorted(lambda x: x.sequence):
             if not wl.serial_name:
-                raise UserError(_("Serial Number cannot be empty."))
+                raise UserError(_("File Number cannot be empty."))
             vals_list.append({
                 "order_id": self.order_id.id,
                 "order_line_id": self.order_line_id.id,
@@ -137,7 +137,7 @@ class TfSaleSerialWizardLine(models.TransientModel):
     wizard_id = fields.Many2one("tf.sale.serial.wizard", required=True, ondelete="cascade")
 
     sequence = fields.Integer(default=10)
-    serial_name = fields.Char(string="Serial Number", required=True)
+    serial_name = fields.Char(string="File Number", required=True)
     tf_description = fields.Char(string="Description")
 
     tf_length = fields.Float(string="Length")
@@ -147,7 +147,7 @@ class TfSaleSerialWizardLine(models.TransientModel):
         [("mm", "mm"), ("cm", "cm"), ("m", "m"), ("in", "in"), ("ft", "ft")],
         string="Dim Unit",
     )
-    tf_weight = fields.Float(string="Weight")
+    tf_weight = fields.Float(string="Weight Included")
     tf_weight_unit = fields.Selection(
         [("g", "g"), ("kg", "kg"), ("lb", "lb")],
         string="Weight Unit",

@@ -17,7 +17,7 @@ class StockMoveLine(models.Model):
         string="Dim Unit",
     )
 
-    tf_weight = fields.Float(string="Weight")
+    tf_weight = fields.Float(string="Weight Included")
     tf_weight_unit = fields.Selection(
         [("g", "g"), ("kg", "kg"), ("lb", "lb")],
         string="Weight Unit",

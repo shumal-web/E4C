@@ -10,6 +10,7 @@
                 <field name="tf_requires_container" invisible="1"/>
                 <field name="tf_show_assign_workflow" invisible="1"/>
                 <field name="tf_allowed_container_plan_ids" invisible="1"/>
+                <field name="tf_allowed_address_partner_ids" invisible="1"/>
             </xpath>
 
             <xpath expr="//field[@name='qty']" position="attributes">
@@ -28,7 +29,11 @@
                         </field>
                     </group>
                     <group string="Common Attributes">
-                        <field name="tf_assign_address_note" widget="text" placeholder="Address..."/>
+                        <field name="tf_assign_address_partner_id"
+                               string="Address"
+                               domain="[('id', 'in', tf_allowed_address_partner_ids)]"
+                               placeholder="Select address..."/>
+                        <field name="tf_assign_address_note" invisible="1"/>
                         <field name="tf_assign_length" force_save="1"/>
                         <field name="tf_assign_width" force_save="1"/>
                         <field name="tf_assign_height" force_save="1"/>
@@ -47,9 +52,13 @@
                        domain="[('id', 'in', parent.tf_allowed_container_plan_ids)]"
                        can_create="0"
                        can_write="0"
-                       context="{'create': False}"
+                       context="{'create': False, 'tf_display_container_number': True}"
                        options="{'no_create': True, 'no_create_edit': True, 'no_open': True}"/>
-                <field name="tf_address_note" string="Address" optional="show"/>
+                <field name="tf_address_partner_id"
+                       string="Address"
+                       domain="[('id', 'in', parent.tf_allowed_address_partner_ids)]"
+                       optional="show"/>
+                <field name="tf_address_note" string="Address Snapshot" optional="hide"/>
             </xpath>
 
             <xpath expr="//footer/button[@name='action_generate_serials']" position="attributes">
@@ -75,22 +84,28 @@
         <field name="model">tf.sale.serial.wizard</field>
         <field name="inherit_id" eval="False"/>
         <field name="arch" type="xml">
-            <form string="Container Details">
+            <form string="Container Details" class="tf_sale_serial_container_wizard">
                 <group>
                     <field name="order_line_id" invisible="1"/>
                     <field name="order_id" readonly="1"/>
                     <field name="product_id" readonly="1"/>
                     <field name="qty" readonly="1"/>
                     <field name="tf_is_container_product" invisible="1"/>
+                    <field name="tf_allowed_address_partner_ids" invisible="1"/>
                 </group>
 
                 <field name="line_ids">
                     <list editable="bottom">
                         <field name="plan_id" column_invisible="1"/>
                         <field name="sequence" column_invisible="1"/>
-                        <field name="serial_name"/>
+                        <field name="serial_name" string="File Number"/>
                         <field name="tf_container_number"/>
-                        <field name="tf_address_note" string="Address" optional="show"/>
+                        <field name="tf_container_serial_number" optional="show"/>
+                        <field name="tf_address_partner_id"
+                               string="Address"
+                               domain="[('id', 'in', parent.tf_allowed_address_partner_ids)]"
+                               optional="show"/>
+                        <field name="tf_address_note" string="Address Snapshot" optional="hide"/>
                         <field name="tf_port_to_destuff"/>
                         <field name="tf_ssl"/>
                         <field name="tf_internal_status"/>
@@ -100,8 +115,10 @@
                         <field name="tf_cutoff_date"/>
                         <field name="tf_container_type"/>
                         <field name="tf_pubk_no"/>
-                        <field name="tf_weight"/>
+                        <field name="tf_weight" string="Tare Weight"/>
                         <field name="tf_weight_unit"/>
+                        <field name="tf_total_weight" optional="show"/>
+                        <field name="tf_total_weight_unit" optional="show"/>
                         <field name="tf_container_location"/>
                         <field name="tf_import_export"/>
                     </list>

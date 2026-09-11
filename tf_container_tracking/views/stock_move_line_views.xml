@@ -53,11 +53,14 @@
                 <field name="tf_port_to_destuff" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_container_status" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_container_location" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_container_serial_number" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit" optional="show"/>
                 <field name="tf_eta" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_lfd" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_cutoff_date" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_ssl" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_container_type" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_weight" string="Tare Weight" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_weight_unit" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_pubk_no" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_import_export" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
             </xpath>
@@ -117,11 +120,14 @@
                 <field name="tf_port_to_destuff" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_container_status" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_container_location" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_container_serial_number" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit" optional="show"/>
                 <field name="tf_eta" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_lfd" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_cutoff_date" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_ssl" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_container_type" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_weight" string="Tare Weight" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
+                <field name="tf_weight_unit" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_pubk_no" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
                 <field name="tf_import_export" invisible="tf_hide_container_columns or not tf_is_container_product" readonly="not tf_allow_receipt_edit"/>
             </xpath>

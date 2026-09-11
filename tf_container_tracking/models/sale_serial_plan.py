@@ -5,6 +5,7 @@ from odoo.exceptions import AccessError, ValidationError
 
 INTERNAL_STATUS_SELECTION = [
     ("for_approval", "For Approval"),
+    ("hold", "Hold"),
     ("hold_ssl", "Hold SSL"),
     ("hold_cbsa", "Hold CBSA"),
     ("pickup", "Pickup"),
@@ -87,16 +88,48 @@ DISPATCH_PROGRESS_SELECTION = [
     ("completed", "Completed"),
 ]
 
+WEIGHT_UNIT_SELECTION = [("g", "g"), ("kg", "kg"), ("lb", "lb")]
+WEIGHT_TO_KG = {"g": 0.001, "kg": 1.0, "lb": 0.45359237}
+
+
+def convert_weight(value, from_unit, to_unit):
+    value = value or 0.0
+    from_unit = from_unit or to_unit
+    to_unit = to_unit or from_unit
+    if not value or not from_unit or not to_unit or from_unit == to_unit:
+        return value
+    if from_unit not in WEIGHT_TO_KG or to_unit not in WEIGHT_TO_KG:
+        return value
+    return value * WEIGHT_TO_KG[from_unit] / WEIGHT_TO_KG[to_unit]
+
+
+def format_tf_partner_address(partner):
+    if not partner:
+        return False
+    values = [partner.display_name]
+    address = partner._display_address(without_company=True)
+    if address:
+        values.append(address)
+    return "\n".join(dict.fromkeys([value for value in values if value]))
+
 
 class TfSaleSerialPlan(models.Model):
     _name = "tf.sale.serial.plan"
     _inherit = ["tf.sale.serial.plan", "mail.thread", "mail.activity.mixin"]
     _rec_name = "serial_name"
-    _rec_names_search = ["serial_name", "tf_container_number", "order_name"]
+    _rec_names_search = ["serial_name", "tf_container_number", "tf_container_serial_number", "order_name"]
 
-    serial_name = fields.Char(string="Serial Number", required=False, index=True, tracking=True)
+    serial_name = fields.Char(string="File Number", required=False, index=True, tracking=True)
 
     order_name = fields.Char(related="order_id.name", store=True, readonly=True, index=True)
+    tf_customer_id = fields.Many2one(
+        "res.partner",
+        string="Customer",
+        related="order_id.partner_id",
+        store=True,
+        readonly=True,
+        index=True,
+    )
     tf_is_container_product = fields.Boolean(
         related="product_id.product_tmpl_id.tf_is_container",
         store=True,
@@ -105,6 +138,12 @@ class TfSaleSerialPlan(models.Model):
     )
 
     tf_container_number = fields.Char(string="Container #", index=True, tracking=True)
+    tf_container_serial_number = fields.Char(
+        string="Container Serial Number",
+        index=True,
+        tracking=True,
+        help="Real carrier/container serial number. The File Number remains the internal E4C tracking reference.",
+    )
     tf_internal_status = fields.Selection(
         INTERNAL_STATUS_SELECTION,
         string="Internal Status",
@@ -156,9 +195,29 @@ class TfSaleSerialPlan(models.Model):
         tracking=True,
     )
     tf_address_note = fields.Text(
-        string="Address",
+        string="Address Snapshot",
         tracking=True,
         help="Address snapshot used for this container or piece serial.",
+    )
+    tf_address_partner_id = fields.Many2one(
+        "res.partner",
+        string="Address",
+        index=True,
+        tracking=True,
+        help="Selected address/contact. The text snapshot is kept separately for old records and printouts.",
+    )
+    tf_weight = fields.Float(string="Tare / Piece Weight")
+    tf_total_weight = fields.Float(
+        string="Total Weight",
+        compute="_compute_tf_total_weight",
+        store=True,
+        help="For containers, this is tare weight plus the weight of all linked pieces.",
+    )
+    tf_total_weight_unit = fields.Selection(
+        WEIGHT_UNIT_SELECTION,
+        string="Total Weight Unit",
+        compute="_compute_tf_total_weight",
+        store=True,
     )
     tf_shipper_partner_id = fields.Many2one(
         "res.partner",
@@ -213,6 +272,29 @@ class TfSaleSerialPlan(models.Model):
         for plan in self:
             plan.tf_piece_count = len(plan.tf_piece_plan_ids)
 
+    @api.depends(
+        "tf_is_container_product",
+        "tf_weight",
+        "tf_weight_unit",
+        "tf_piece_plan_ids.tf_weight",
+        "tf_piece_plan_ids.tf_weight_unit",
+    )
+    def _compute_tf_total_weight(self):
+        for plan in self:
+            if not plan.tf_is_container_product:
+                plan.tf_total_weight = plan.tf_weight or 0.0
+                plan.tf_total_weight_unit = plan.tf_weight_unit or False
+                continue
+
+            piece_plans = plan.tf_piece_plan_ids.filtered(lambda piece: not piece.tf_is_container_product)
+            first_piece_unit = next((piece.tf_weight_unit for piece in piece_plans if piece.tf_weight_unit), False)
+            total_unit = plan.tf_weight_unit or first_piece_unit or "kg"
+            total = convert_weight(plan.tf_weight, plan.tf_weight_unit or total_unit, total_unit)
+            for piece in piece_plans:
+                total += convert_weight(piece.tf_weight, piece.tf_weight_unit or total_unit, total_unit)
+            plan.tf_total_weight = total
+            plan.tf_total_weight_unit = total_unit
+
     @api.depends("tf_eta", "tf_lfd", "tf_dispatch_progress")
     def _compute_tf_overdue_dates(self):
         today = fields.Date.context_today(self)
@@ -258,31 +340,33 @@ class TfSaleSerialPlan(models.Model):
                     % plan.tf_container_number
                 )
 
+    def _tf_display_name(self):
+        self.ensure_one()
+        if self.tf_is_container_product:
+            return self.tf_container_number or self.serial_name or str(self.id)
+        return self.serial_name or str(self.id)
+
     def name_get(self):
         result = []
         for record in self:
-            label = record.serial_name or str(record.id)
-            if record.tf_container_number and record.tf_container_number != label:
-                label = "%s (%s)" % (label, record.tf_container_number)
+            label = record._tf_display_name()
             result.append((record.id, label))
         return result
 
-    @api.depends_context("tf_display_container_number")
     @api.depends("serial_name", "tf_container_number", "tf_is_container_product")
     def _compute_display_name(self):
-        if not self.env.context.get("tf_display_container_number"):
-            return super()._compute_display_name()
         for record in self:
-            if record.tf_is_container_product and record.tf_container_number:
-                record.display_name = record.tf_container_number
-            else:
-                record.display_name = record.serial_name or str(record.id)
+            record.display_name = record._tf_display_name()
 
     @api.model_create_multi
     def create(self, vals_list):
         prepared_vals = []
         for vals in vals_list:
             vals = normalize_tf_container_selection_values(dict(vals))
+            if vals.get("tf_address_partner_id") and not vals.get("tf_address_note"):
+                vals["tf_address_note"] = format_tf_partner_address(
+                    self.env["res.partner"].browse(vals["tf_address_partner_id"])
+                )
             order_line = self.env["sale.order.line"].browse(vals.get("order_line_id")).exists()
             product_template = order_line.product_id.product_tmpl_id if order_line else self.env["product.template"]
             if product_template:
@@ -313,13 +397,14 @@ class TfSaleSerialPlan(models.Model):
             raise AccessError(_("Only Inventory Managers can change Internal Status."))
 
         transitions = {
-            "for_approval": {"hold_ssl", "hold_cbsa", "pickup", "tracking", "planning"},
-            "hold_ssl": {"for_approval", "hold_cbsa", "pickup", "tracking", "planning"},
-            "hold_cbsa": {"for_approval", "hold_ssl", "pickup", "tracking", "planning"},
-            "pickup": {"for_approval", "hold_ssl", "hold_cbsa", "tracking", "planning", "dispatch"},
-            "tracking": {"for_approval", "hold_ssl", "hold_cbsa", "pickup", "planning", "dispatch"},
-            "planning": {"for_approval", "hold_ssl", "hold_cbsa", "tracking", "dispatch"},
-            "dispatch": {"for_approval", "hold_ssl", "hold_cbsa", "tracking"},
+            "for_approval": {"hold", "hold_ssl", "hold_cbsa", "pickup", "tracking", "planning"},
+            "hold": {"for_approval", "hold_ssl", "hold_cbsa", "pickup", "tracking", "planning", "dispatch"},
+            "hold_ssl": {"for_approval", "hold", "hold_cbsa", "pickup", "tracking", "planning"},
+            "hold_cbsa": {"for_approval", "hold", "hold_ssl", "pickup", "tracking", "planning"},
+            "pickup": {"for_approval", "hold", "hold_ssl", "hold_cbsa", "tracking", "planning", "dispatch"},
+            "tracking": {"for_approval", "hold", "hold_ssl", "hold_cbsa", "pickup", "planning", "dispatch"},
+            "planning": {"for_approval", "hold", "hold_ssl", "hold_cbsa", "tracking", "dispatch"},
+            "dispatch": {"for_approval", "hold", "hold_ssl", "hold_cbsa", "tracking"},
         }
         label_map = dict(self._fields["tf_internal_status"].selection)
 
@@ -336,6 +421,10 @@ class TfSaleSerialPlan(models.Model):
 
     def write(self, vals):
         vals = normalize_tf_container_selection_values(dict(vals))
+        if vals.get("tf_address_partner_id") and "tf_address_note" not in vals:
+            vals["tf_address_note"] = format_tf_partner_address(
+                self.env["res.partner"].browse(vals["tf_address_partner_id"])
+            )
         if "tf_internal_status" in vals:
             new_status = vals.get("tf_internal_status")
             changed_records = self.filtered(lambda rec: rec.tf_internal_status != new_status)

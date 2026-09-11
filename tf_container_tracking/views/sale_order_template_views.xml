@@ -12,6 +12,7 @@
                 <field name="tf_consignee_partner_id"/>
                 <field name="tf_consignee_note" widget="text" placeholder="Consignee details..."/>
                 <field name="tf_special_instructions" widget="text" placeholder="Special instructions..."/>
+                <field name="tf_internal_notes" widget="text" placeholder="Internal notes..."/>
                 <field name="tf_address_note" invisible="1"/>
             </xpath>
         </field>
@@ -30,6 +31,7 @@
                 <field name="tf_consignee_note" optional="hide"/>
                 <field name="tf_address_note" optional="hide"/>
                 <field name="tf_special_instructions" optional="hide"/>
+                <field name="tf_internal_notes" optional="hide"/>
             </xpath>
         </field>
     </record>

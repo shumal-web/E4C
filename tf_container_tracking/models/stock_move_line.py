@@ -6,6 +6,7 @@ from .sale_serial_plan import (
     CONTAINER_STATUS_SELECTION,
     ORIGIN_SELECTION,
     SSL_SELECTION,
+    format_tf_partner_address,
     normalize_tf_container_selection_values,
 )
 
@@ -20,6 +21,7 @@ SERIAL_ATTRIBUTE_FIELDS = {
     "tf_weight_unit",
     "tf_storage_rate",
     "tf_location_note",
+    "tf_address_partner_id",
     "tf_address_note",
 }
 
@@ -36,6 +38,7 @@ CONTAINER_ATTRIBUTE_FIELDS = {
     "tf_chassis_no",
     "tf_pubk_no",
     "tf_import_export",
+    "tf_container_serial_number",
 }
 
 
@@ -65,6 +68,7 @@ class StockMoveLine(models.Model):
         default="on_water",
     )
     tf_container_location = fields.Char(string="Container Location")
+    tf_container_serial_number = fields.Char(string="Container Serial Number", index=True)
     tf_eta = fields.Date(string="ETA")
     tf_lfd = fields.Date(string="LFD")
     tf_cutoff_date = fields.Date(string="Cutoff")
@@ -79,7 +83,9 @@ class StockMoveLine(models.Model):
         ],
         string="Import/Export",
     )
-    tf_address_note = fields.Text(string="Address")
+    tf_address_note = fields.Text(string="Address Snapshot")
+    tf_address_partner_id = fields.Many2one("res.partner", string="Address", index=True)
+    tf_weight = fields.Float(string="Weight Included")
 
     tf_allowed_lot_ids = fields.Many2many(
         "stock.lot",
@@ -160,10 +166,22 @@ class StockMoveLine(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        return super().create([normalize_tf_container_selection_values(dict(vals)) for vals in vals_list])
+        prepared_vals = []
+        for vals in vals_list:
+            vals = normalize_tf_container_selection_values(dict(vals))
+            if vals.get("tf_address_partner_id") and not vals.get("tf_address_note"):
+                vals["tf_address_note"] = format_tf_partner_address(
+                    self.env["res.partner"].browse(vals["tf_address_partner_id"])
+                )
+            prepared_vals.append(vals)
+        return super().create(prepared_vals)
 
     def write(self, vals):
         vals = normalize_tf_container_selection_values(dict(vals))
+        if vals.get("tf_address_partner_id") and "tf_address_note" not in vals:
+            vals["tf_address_note"] = format_tf_partner_address(
+                self.env["res.partner"].browse(vals["tf_address_partner_id"])
+            )
         sync_fields = (SERIAL_ATTRIBUTE_FIELDS | CONTAINER_ATTRIBUTE_FIELDS | {"tf_container_plan_id"}).intersection(vals)
         res = super().write(vals)
         if sync_fields:
