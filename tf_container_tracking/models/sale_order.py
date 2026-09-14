@@ -39,6 +39,15 @@ class SaleOrder(models.Model):
         compute="_compute_tf_dispatch_ticket_count",
         string="Dispatch Tickets",
     )
+    tf_load_document_ids = fields.One2many(
+        "tf.load.document",
+        "sale_order_id",
+        string="Documents",
+    )
+    tf_load_document_count = fields.Integer(
+        compute="_compute_tf_load_document_count",
+        string="Document Count",
+    )
     tf_address_note = fields.Text(
         string="Address",
     )
@@ -189,6 +198,20 @@ class SaleOrder(models.Model):
         for order in self:
             order.tf_dispatch_ticket_count = counts.get(order.id, 0)
 
+    def _compute_tf_load_document_count(self):
+        grouped = self.env["tf.load.document"].read_group(
+            [("sale_order_id", "in", self.ids)],
+            ["sale_order_id"],
+            ["sale_order_id"],
+        )
+        counts = {
+            item["sale_order_id"][0]: item["sale_order_id_count"]
+            for item in grouped
+            if item.get("sale_order_id")
+        }
+        for order in self:
+            order.tf_load_document_count = counts.get(order.id, 0)
+
     def action_open_tf_container_tracking(self):
         self.ensure_one()
         return {
@@ -214,6 +237,20 @@ class SaleOrder(models.Model):
             "res_model": "tf.dispatch.ticket",
             "view_mode": "list,form",
             "domain": [("sale_order_id", "=", self.id)],
+            "target": "current",
+        }
+
+    def action_open_tf_load_documents(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Load Documents"),
+            "res_model": "tf.load.document",
+            "view_mode": "list,form",
+            "domain": [("sale_order_id", "=", self.id)],
+            "context": {
+                "default_sale_order_id": self.id,
+            },
             "target": "current",
         }
 

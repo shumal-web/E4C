@@ -139,6 +139,16 @@ class TfDispatchTicket(models.Model):
     completed_on = fields.Datetime(readonly=True)
     completed_by = fields.Many2one("res.users", readonly=True)
     note = fields.Text()
+    tf_load_document_ids = fields.One2many(
+        related="sale_order_id.tf_load_document_ids",
+        string="Documents",
+        readonly=False,
+    )
+    tf_load_document_count = fields.Integer(
+        related="sale_order_id.tf_load_document_count",
+        string="Document Count",
+        readonly=True,
+    )
 
     internal_transfer_id = fields.Many2one("stock.picking", string="Internal Transfer", readonly=True)
     delivery_order_id = fields.Many2one("stock.picking", string="Delivery Order", readonly=True)
@@ -344,6 +354,21 @@ class TfDispatchTicket(models.Model):
                 }
             )
         return True
+
+    def action_open_tf_load_documents(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Load Documents"),
+            "res_model": "tf.load.document",
+            "view_mode": "list,form",
+            "domain": [("sale_order_id", "=", self.sale_order_id.id)],
+            "context": {
+                "default_sale_order_id": self.sale_order_id.id,
+                "default_dispatch_ticket_id": self.id,
+            },
+            "target": "current",
+        }
 
     def action_mark_in_progress(self):
         for rec in self:

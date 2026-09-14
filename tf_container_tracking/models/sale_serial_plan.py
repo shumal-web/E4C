@@ -266,6 +266,16 @@ class TfSaleSerialPlan(models.Model):
         compute="_compute_tf_piece_count",
         store=False,
     )
+    tf_load_document_ids = fields.One2many(
+        related="order_id.tf_load_document_ids",
+        string="Documents",
+        readonly=False,
+    )
+    tf_load_document_count = fields.Integer(
+        related="order_id.tf_load_document_count",
+        string="Document Count",
+        readonly=True,
+    )
 
     @api.depends("tf_piece_plan_ids")
     def _compute_tf_piece_count(self):
@@ -490,3 +500,18 @@ class TfSaleSerialPlan(models.Model):
         self._check_tf_internal_status_access("dispatch")
         self.write({"tf_internal_status": "dispatch"})
         return True
+
+    def action_open_tf_load_documents(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Load Documents"),
+            "res_model": "tf.load.document",
+            "view_mode": "list,form",
+            "domain": [("sale_order_id", "=", self.order_id.id)],
+            "context": {
+                "default_sale_order_id": self.order_id.id,
+                "default_container_plan_id": self.id,
+            },
+            "target": "current",
+        }

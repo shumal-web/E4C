@@ -12,6 +12,15 @@
                         class="btn-secondary"
                         invisible="state != 'done' or not tf_container_plan_id or picking_type_code != 'incoming'"/>
             </xpath>
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_open_tf_load_documents"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-file-text-o"
+                        invisible="not tf_sale_order_id">
+                    <field name="tf_load_document_count" string="Documents" widget="statinfo"/>
+                </button>
+            </xpath>
             <xpath expr="//field[@name='origin']" position="after">
                 <field name="tf_sale_order_id"
                        options="{'no_create': True}"
@@ -25,6 +34,49 @@
                 <field name="tf_consignee_partner_id" readonly="1"/>
                 <field name="tf_consignee_note" widget="text" readonly="1"/>
                 <field name="tf_address_note" widget="text" readonly="1" invisible="1"/>
+            </xpath>
+            <xpath expr="//notebook" position="inside">
+                <page name="tf_load_documents" string="Documents">
+                    <field name="tf_load_document_ids"
+                           context="{'default_sale_order_id': tf_sale_order_id, 'default_picking_id': id}">
+                        <list string="Load Documents" editable="bottom">
+                            <button name="action_download_file" type="object" string="Download" icon="fa-download"/>
+                <field name="file_name" string="File Name"/>
+                <field name="file_data" widget="binary" filename="file_name" optional="hide"/>
+                <field name="attachment_id" readonly="1" optional="hide"/>
+                            <field name="document_type"/>
+                            <field name="source" readonly="1"/>
+                            <field name="container_plan_id" optional="hide"/>
+                            <field name="dispatch_ticket_id" optional="hide"/>
+                            <field name="picking_id" optional="show"/>
+                            <field name="uploaded_by_id" readonly="1"/>
+                            <field name="uploaded_on" readonly="1"/>
+                            <field name="comment"/>
+                        </list>
+                        <form string="Load Document">
+                            <group>
+                                <group>
+                                    <field name="document_type"/>
+                                    <button name="action_download_file" type="object" string="Download" class="btn-primary"/>
+                                    <field name="file_name"/>
+                                    <field name="file_data" widget="binary" filename="file_name"/>
+                                    <field name="attachment_id" readonly="1"/>
+                                </group>
+                                <group>
+                                    <field name="source" readonly="1"/>
+                                    <field name="uploaded_by_id" readonly="1"/>
+                                    <field name="uploaded_on" readonly="1"/>
+                                    <field name="container_plan_id"/>
+                                    <field name="dispatch_ticket_id"/>
+                                    <field name="picking_id"/>
+                                </group>
+                            </group>
+                            <group>
+                                <field name="comment" placeholder="Add a note about this file..."/>
+                            </group>
+                        </form>
+                    </field>
+                </page>
             </xpath>
             <xpath expr="//chatter" position="attributes">
                 <attribute name="open_attachments">True</attribute>

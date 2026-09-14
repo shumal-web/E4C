@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "TF Container Tracking",
-    "version": "19.0.2.27.0",
+    "version": "19.0.2.31.0",
     "category": "Inventory/Sales",
     "summary": "Container serial planning, piece-to-container assignment, and tracking dashboard.",
     "author": "E4C",
@@ -10,6 +10,7 @@
     "data": [
         "security/ir.model.access.csv",
         "data/ir_cron.xml",
+        "views/load_document_views.xml",
         "views/product_views.xml",
         "views/menu_views.xml",
         "views/res_partner_views.xml",

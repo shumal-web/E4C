@@ -7,5 +7,7 @@ access_tf_dispatch_truck_user,tf.dispatch.truck.user,model_tf_dispatch_truck,sto
 access_tf_dispatch_truck_manager,tf.dispatch.truck.manager,model_tf_dispatch_truck,stock.group_stock_manager,1,1,1,1
 access_tf_dispatch_driver_user,tf.dispatch.driver.user,model_tf_dispatch_driver,stock.group_stock_user,1,1,1,0
 access_tf_dispatch_driver_manager,tf.dispatch.driver.manager,model_tf_dispatch_driver,stock.group_stock_manager,1,1,1,1
+access_tf_load_document_user,tf.load.document.user,model_tf_load_document,base.group_user,1,1,1,0
+access_tf_load_document_manager,tf.load.document.manager,model_tf_load_document,stock.group_stock_manager,1,1,1,1
 access_tf_sale_serial_wizard_assign_line_user,tf.sale.serial.wizard.assign.line.user,model_tf_sale_serial_wizard_assign_line,base.group_user,1,1,1,1
 access_tf_container_bulk_update_wizard_user,tf.container.bulk.update.wizard.user,model_tf_container_bulk_update_wizard,stock.group_stock_user,1,1,1,1

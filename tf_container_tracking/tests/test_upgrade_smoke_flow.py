@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import base64
+
 from lxml import etree
 
 from odoo import fields
@@ -246,6 +248,7 @@ class TestUpgradeSmokeFlow(TransactionCase):
         self.assertEqual(dispatch.state, "completed")
         self.assertEqual(trailer.current_location, "Client Yard")
 
+        self._assert_load_documents_follow_project(sale_order, container_plans[0], dispatch, receiving)
         self._assert_so_lot_filter(sale_order, case_product, selected_lots[:1])
 
     def test_02_direct_container_to_client_smoke_flow(self):
@@ -317,6 +320,8 @@ class TestUpgradeSmokeFlow(TransactionCase):
                 "tf_shipment_type",
                 "tf_container_tracking_count",
                 "tf_dispatch_ticket_count",
+                "tf_load_document_ids",
+                "tf_load_document_count",
                 "tf_address_note",
                 "tf_shipper_note",
                 "tf_consignee_note",
@@ -348,6 +353,8 @@ class TestUpgradeSmokeFlow(TransactionCase):
                 "tf_container_serial_number",
                 "tf_container_total_weight",
                 "tf_container_total_weight_unit",
+                "tf_load_document_ids",
+                "tf_load_document_count",
             ],
             "tf.sale.serial.plan": [
                 "tf_ssl",
@@ -357,6 +364,13 @@ class TestUpgradeSmokeFlow(TransactionCase):
                 "tf_container_serial_number",
                 "tf_total_weight",
                 "tf_total_weight_unit",
+                "tf_load_document_ids",
+                "tf_load_document_count",
+            ],
+            "stock.picking": [
+                "tf_sale_order_id",
+                "tf_load_document_ids",
+                "tf_load_document_count",
             ],
             "stock.lot": [
                 "tf_origin_sale_order_id",
@@ -376,6 +390,19 @@ class TestUpgradeSmokeFlow(TransactionCase):
                 "tf_address_partner_id",
                 "tf_address_note",
                 "tf_container_serial_number",
+            ],
+            "tf.load.document": [
+                "sale_order_id",
+                "container_plan_id",
+                "dispatch_ticket_id",
+                "picking_id",
+                "document_type",
+                "attachment_id",
+                "file_data",
+                "file_name",
+                "uploaded_by_id",
+                "uploaded_on",
+                "comment",
             ],
         }
         for model_name, field_names in field_checks.items():
@@ -398,6 +425,7 @@ class TestUpgradeSmokeFlow(TransactionCase):
             ("stock.lot", "stock.view_production_lot_tree", "list"),
             ("tf.dispatch.ticket", "tf_container_tracking.view_tf_dispatch_ticket_form", "form"),
             ("tf.dispatch.ticket", "tf_container_tracking.view_tf_dispatch_ticket_list", "list"),
+            ("tf.sale.serial.plan", "tf_container_tracking.view_tf_container_dashboard_form", "form"),
             ("tf.sale.serial.plan", "tf_container_tracking.view_tf_container_dashboard_tree", "list"),
         ]
         for model_name, xmlid, view_type in view_checks:
@@ -415,6 +443,27 @@ class TestUpgradeSmokeFlow(TransactionCase):
             tree_arch = etree.fromstring(tree_view["arch"].encode())
             for button in tree_arch.xpath("//header/button"):
                 self.assertNotIn("tf_flow_state", button.get("invisible") or "")
+
+        document_tab_views = [
+            ("sale.order", "sale.view_order_form"),
+            ("stock.picking", "stock.view_picking_form"),
+            ("tf.dispatch.ticket", "tf_container_tracking.view_tf_dispatch_ticket_form"),
+            ("tf.sale.serial.plan", "tf_container_tracking.view_tf_container_dashboard_form"),
+        ]
+        for model_name, xmlid in document_tab_views:
+            view = self.env[model_name].get_view(
+                view_id=self.env.ref(xmlid).id,
+                view_type="form",
+            )
+            arch = etree.fromstring(view["arch"].encode())
+            self.assertTrue(
+                arch.xpath("//page[@name='tf_load_documents']//field[@name='tf_load_document_ids']"),
+                f"Documents tab missing on {xmlid}",
+            )
+            self.assertTrue(
+                arch.xpath("//button[@name='action_open_tf_load_documents']"),
+                f"Documents button missing on {xmlid}",
+            )
 
     def _assert_so_lot_filter(self, sale_order, product, expected_lots):
         other_order = self.env["sale.order"].create({"partner_id": sale_order.partner_id.id})
@@ -458,3 +507,158 @@ class TestUpgradeSmokeFlow(TransactionCase):
         line._compute_tf_allowed_lot_ids()
         self.assertTrue(set(expected_lots.ids).intersection(line.tf_allowed_lot_ids.ids))
         self.assertNotIn(other_lot.id, line.tf_allowed_lot_ids.ids)
+
+    def _assert_load_documents_follow_project(self, sale_order, container_plan, dispatch, picking):
+        def encoded(value):
+            return base64.b64encode(value.encode())
+
+        def add_document(parent, vals):
+            parent.write({"tf_load_document_ids": [(0, 0, vals)]})
+            return self.env["tf.load.document"].search(
+                [
+                    ("sale_order_id", "=", sale_order.id),
+                    ("file_name", "=", vals["file_name"]),
+                ],
+                limit=1,
+            )
+
+        sale_doc = add_document(sale_order, {
+            "document_type": "bol",
+            "file_data": encoded("sales order document"),
+            "file_name": "sales-order-bol.txt",
+            "comment": "Uploaded from Sales Order",
+        })
+        container_doc = add_document(container_plan, {
+            "container_plan_id": container_plan.id,
+            "document_type": "photo",
+            "file_data": encoded("container document"),
+            "file_name": "container-photo.txt",
+            "comment": "Uploaded from Container Tracking",
+        })
+        dispatch_doc = add_document(dispatch, {
+            "dispatch_ticket_id": dispatch.id,
+            "document_type": "other",
+            "file_data": encoded("dispatch document"),
+            "file_name": "dispatch-note.txt",
+            "comment": "Uploaded from Dispatch Ticket",
+        })
+        picking_doc = add_document(picking, {
+            "picking_id": picking.id,
+            "document_type": "packing_list",
+            "file_data": encoded("inventory document"),
+            "file_name": "receiving-packing-list.txt",
+            "comment": "Uploaded from Inventory Document",
+        })
+
+        documents = sale_doc | container_doc | dispatch_doc | picking_doc
+        self.assertEqual(documents.mapped("sale_order_id"), sale_order)
+        self.assertEqual(container_doc.source, "Container Tracking")
+        self.assertEqual(dispatch_doc.source, "Dispatch Ticket")
+        self.assertEqual(picking_doc.source, "Inventory Document")
+
+        sales_attachment = self.env["ir.attachment"].create({
+            "name": "chatter-sales-upload.pdf",
+            "datas": encoded("sales chatter document"),
+            "res_model": "sale.order",
+            "res_id": sale_order.id,
+            "mimetype": "application/pdf",
+            "description": "Sales chatter file note",
+        })
+        sales_chatter_doc = self.env["tf.load.document"].search([
+            ("attachment_id", "=", sales_attachment.id),
+        ])
+        self.assertEqual(len(sales_chatter_doc), 1)
+        self.assertEqual(sales_chatter_doc.sale_order_id, sale_order)
+        self.assertEqual(sales_chatter_doc.source, "Sales Order")
+        self.assertEqual(sales_chatter_doc.file_name, "chatter-sales-upload.pdf")
+        self.assertEqual(sales_chatter_doc.comment, "Sales chatter file note")
+        self.assertEqual(sales_chatter_doc.action_download_file()["type"], "ir.actions.act_url")
+
+        delayed_attachment = self.env["ir.attachment"].create({
+            "name": "delayed-container-upload.jpg",
+            "datas": encoded("container chatter document"),
+            "mimetype": "image/jpeg",
+        })
+        self.assertFalse(self.env["tf.load.document"].search([
+            ("attachment_id", "=", delayed_attachment.id),
+        ]))
+        delayed_attachment.write({
+            "res_model": "tf.sale.serial.plan",
+            "res_id": container_plan.id,
+        })
+        container_chatter_doc = self.env["tf.load.document"].search([
+            ("attachment_id", "=", delayed_attachment.id),
+        ])
+        self.assertEqual(len(container_chatter_doc), 1)
+        self.assertEqual(container_chatter_doc.sale_order_id, sale_order)
+        self.assertEqual(container_chatter_doc.container_plan_id, container_plan)
+        self.assertEqual(container_chatter_doc.document_type, "photo")
+        self.assertEqual(container_chatter_doc.source, "Container Tracking")
+
+        dispatch_attachment = self.env["ir.attachment"].create({
+            "name": "dispatch-chatter-upload.txt",
+            "datas": encoded("dispatch chatter document"),
+            "res_model": "tf.dispatch.ticket",
+            "res_id": dispatch.id,
+            "mimetype": "text/plain",
+        })
+        dispatch_chatter_doc = self.env["tf.load.document"].search([
+            ("attachment_id", "=", dispatch_attachment.id),
+        ])
+        self.assertEqual(len(dispatch_chatter_doc), 1)
+        self.assertEqual(dispatch_chatter_doc.dispatch_ticket_id, dispatch)
+        self.assertEqual(dispatch_chatter_doc.source, "Dispatch Ticket")
+
+        picking_attachment = self.env["ir.attachment"].create({
+            "name": "inventory-chatter-upload.txt",
+            "datas": encoded("inventory chatter document"),
+            "res_model": "stock.picking",
+            "res_id": picking.id,
+            "mimetype": "text/plain",
+        })
+        picking_chatter_doc = self.env["tf.load.document"].search([
+            ("attachment_id", "=", picking_attachment.id),
+        ])
+        self.assertEqual(len(picking_chatter_doc), 1)
+        self.assertEqual(picking_chatter_doc.picking_id, picking)
+        self.assertEqual(picking_chatter_doc.source, "Inventory Document")
+
+        dispatch_attachment.write({"name": "dispatch-chatter-renamed.txt"})
+        self.assertEqual(dispatch_chatter_doc.file_name, "dispatch-chatter-renamed.txt")
+
+        old_attachment = self.env["ir.attachment"].with_context(tf_skip_load_document_sync=True).create({
+            "name": "old-sales-chatter-upload.pdf",
+            "datas": encoded("old sales chatter document"),
+            "res_model": "sale.order",
+            "res_id": sale_order.id,
+            "mimetype": "application/pdf",
+        })
+        self.assertFalse(self.env["tf.load.document"].search([
+            ("attachment_id", "=", old_attachment.id),
+        ]))
+        self.env["ir.attachment"]._cron_tf_sync_load_documents(limit=50)
+        old_chatter_doc = self.env["tf.load.document"].search([
+            ("attachment_id", "=", old_attachment.id),
+        ])
+        self.assertEqual(len(old_chatter_doc), 1)
+        self.assertEqual(old_chatter_doc.sale_order_id, sale_order)
+
+        deleted_doc_id = picking_chatter_doc.id
+        picking_attachment.unlink()
+        self.assertFalse(self.env["tf.load.document"].browse(deleted_doc_id).exists())
+
+        documents |= sales_chatter_doc | container_chatter_doc | dispatch_chatter_doc | old_chatter_doc
+        expected_ids = set(documents.ids)
+        self.assertTrue(expected_ids.issubset(set(sale_order.tf_load_document_ids.ids)))
+        self.assertTrue(expected_ids.issubset(set(container_plan.tf_load_document_ids.ids)))
+        self.assertTrue(expected_ids.issubset(set(dispatch.tf_load_document_ids.ids)))
+        self.assertTrue(expected_ids.issubset(set(picking.tf_load_document_ids.ids)))
+
+        for action in (
+            sale_order.action_open_tf_load_documents(),
+            container_plan.action_open_tf_load_documents(),
+            dispatch.action_open_tf_load_documents(),
+            picking.action_open_tf_load_documents(),
+        ):
+            self.assertEqual(action["res_model"], "tf.load.document")
+            self.assertEqual(action["domain"], [("sale_order_id", "=", sale_order.id)])

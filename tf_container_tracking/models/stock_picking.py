@@ -75,12 +75,39 @@ class StockPicking(models.Model):
         related="tf_sale_order_id.tf_consignee_note",
         readonly=True,
     )
+    tf_load_document_ids = fields.One2many(
+        related="tf_sale_order_id.tf_load_document_ids",
+        string="Documents",
+        readonly=False,
+    )
+    tf_load_document_count = fields.Integer(
+        related="tf_sale_order_id.tf_load_document_count",
+        string="Document Count",
+        readonly=True,
+    )
 
     @api.onchange("tf_sale_order_id")
     def _onchange_tf_sale_order_id(self):
         for picking in self:
             if picking.tf_sale_order_id:
                 picking.origin = picking.tf_sale_order_id.name
+
+    def action_open_tf_load_documents(self):
+        self.ensure_one()
+        if not self.tf_sale_order_id:
+            raise UserError(_("Set SO Filter before adding load documents."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Load Documents"),
+            "res_model": "tf.load.document",
+            "view_mode": "list,form",
+            "domain": [("sale_order_id", "=", self.tf_sale_order_id.id)],
+            "context": {
+                "default_sale_order_id": self.tf_sale_order_id.id,
+                "default_picking_id": self.id,
+            },
+            "target": "current",
+        }
 
     @api.onchange("origin")
     def _onchange_origin_tf_sale_order_id(self):
