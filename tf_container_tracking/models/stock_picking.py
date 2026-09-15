@@ -472,8 +472,9 @@ class StockPicking(models.Model):
     @api.model
     def _tf_create_sale_order_lines_picking(self, sale_order, order_lines, operation_code, partner=False, flow_kind=False):
         sale_order.ensure_one()
-        if not order_lines:
-            raise UserError(_("No sales order lines found for this flow."))
+        valid_order_lines = order_lines.filtered(lambda line: not line.display_type and line.product_id)
+        if not valid_order_lines:
+            raise UserError(_("No valid product lines found for this flow."))
         picking_type = self._tf_get_picking_type(operation_code, sale_order.company_id)
         if not picking_type:
             raise UserError(_("No %s picking type found for this company.") % operation_code)
@@ -489,7 +490,7 @@ class StockPicking(models.Model):
                 "tf_flow_kind": flow_kind or False,
             }
         )
-        for line in order_lines:
+        for line in valid_order_lines:
             self.env["stock.move"].create(
                 {
                     "description_picking": line.product_id.display_name,

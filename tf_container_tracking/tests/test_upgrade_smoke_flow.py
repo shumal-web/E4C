@@ -413,6 +413,7 @@ class TestUpgradeSmokeFlow(TransactionCase):
         self.assertEqual(self.env["tf.sale.serial.plan"]._fields["tf_port_to_destuff"].type, "selection")
         self.assertEqual(self.env["tf.sale.serial.plan"]._fields["serial_name"].string, "File Number")
         self.assertIn(("hold", "Hold"), self.env["tf.sale.serial.plan"]._fields["tf_internal_status"].selection)
+        self.assertIn(("hold", "Hold"), self.env["tf.sale.serial.plan"]._fields["tf_container_status"].selection)
 
     def _assert_critical_views_load(self):
         view_checks = [
@@ -464,6 +465,15 @@ class TestUpgradeSmokeFlow(TransactionCase):
                 arch.xpath("//button[@name='action_open_tf_load_documents']"),
                 f"Documents button missing on {xmlid}",
             )
+
+        sale_view = self.env["sale.order"].get_view(
+            view_id=self.env.ref("sale.view_order_form").id,
+            view_type="form",
+        )
+        sale_arch = etree.fromstring(sale_view["arch"].encode())
+        preview_buttons = sale_arch.xpath("//button[@name='action_preview_sale_order']")
+        self.assertTrue(preview_buttons)
+        self.assertTrue(all(button.get("invisible") == "1" for button in preview_buttons))
 
     def _assert_so_lot_filter(self, sale_order, product, expected_lots):
         other_order = self.env["sale.order"].create({"partner_id": sale_order.partner_id.id})

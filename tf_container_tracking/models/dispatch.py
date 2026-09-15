@@ -330,6 +330,19 @@ class TfDispatchTicket(models.Model):
             if rec.trailer_id and not rec.trailer_destination_location:
                 rec.trailer_destination_location = rec.location_note or rec.location_partner_id.display_name or rec.trailer_id.destination_location
 
+    @api.model
+    def _tf_dispatch_destination_from_vals(self, vals):
+        dispatch_type = vals.get("dispatch_type") or "pickup_parts"
+        if vals.get("container_plan_id"):
+            container_plan = self.env["tf.sale.serial.plan"].browse(vals["container_plan_id"]).exists()
+            if container_plan:
+                return container_plan._tf_dispatch_destination_for_type(dispatch_type)
+        if vals.get("sale_order_id"):
+            sale_order = self.env["sale.order"].browse(vals["sale_order_id"]).exists()
+            if sale_order:
+                return sale_order._tf_order_dispatch_destination(dispatch_type)
+        return False
+
     @api.model_create_multi
     def create(self, vals_list):
         sequence = self.env["ir.sequence"]
@@ -341,6 +354,10 @@ class TfDispatchTicket(models.Model):
                 vals.setdefault("contact_id", (sale_order.tf_dispatch_contact_id or sale_order.partner_shipping_id or sale_order.partner_id).id)
                 if not vals.get("sale_order_ids"):
                     vals["sale_order_ids"] = [(6, 0, sale_order.ids)]
+            destination_location = self._tf_dispatch_destination_from_vals(vals)
+            if destination_location:
+                vals.setdefault("location_note", destination_location)
+                vals.setdefault("trailer_destination_location", destination_location)
         return super().create(vals_list)
 
     def action_send_whatsapp(self):
@@ -649,18 +666,46 @@ class TfSaleSerialPlan(models.Model):
             "target": "new",
         }
 
+    def _tf_terminal_destination_text(self):
+        self.ensure_one()
+        return (
+            self.tf_address_note
+            or self.tf_port_to_destuff
+            or self.tf_container_location
+            or self.tf_container_number
+            or self.serial_name
+        )
+
+    def _tf_dispatch_destination_for_type(self, dispatch_type):
+        self.ensure_one()
+        dispatch_type = dispatch_type or "pickup_parts"
+        terminal_destination = self._tf_terminal_destination_text()
+        company_destination = self.order_id._tf_company_location_text()
+        customer_destination = self.order_id._tf_order_customer_destination_text()
+        shipper_destination = self.order_id._tf_order_shipper_destination_text()
+        destination_map = {
+            "delivery_leg_1": terminal_destination,
+            "delivery_leg_2": company_destination,
+            "return_leg": customer_destination,
+            "return_container": terminal_destination,
+            "export_container_leg_1": terminal_destination,
+            "export_container_leg_2": company_destination,
+            "export_container_leg_3": terminal_destination,
+            "direct_container_client": customer_destination,
+            "import_dispatch": customer_destination,
+            "pickup_parts": shipper_destination,
+        }
+        return (
+            destination_map.get(dispatch_type)
+            or terminal_destination
+            or customer_destination
+            or company_destination
+        )
+
     def _prepare_dispatch_defaults(self, dispatch_type):
         self.ensure_one()
-        location_note = self.tf_address_note or self.tf_port_to_destuff or self.tf_container_location
+        location_note = self._tf_dispatch_destination_for_type(dispatch_type)
         dispatch_date = self.tf_ready_on or fields.Datetime.now()
-        if dispatch_type in ("delivery_leg_2", "export_container_leg_2"):
-            location_note = self.tf_container_location or self.tf_container_number or location_note
-        if dispatch_type == "direct_container_client":
-            location_note = (
-                self.order_id.partner_shipping_id.display_name
-                or self.order_id.partner_id.display_name
-                or location_note
-            )
         return {
             "default_dispatch_type": dispatch_type,
             "default_sale_order_id": self.order_id.id,
@@ -703,6 +748,14 @@ class TfSaleSerialPlan(models.Model):
         self.ensure_one()
         existing = self._get_existing_dispatch_ticket(dispatch_type, active_only=False)
         if existing:
+            defaults = self._prepare_dispatch_defaults(dispatch_type)
+            updates = {}
+            if defaults["default_location_note"] and not existing.location_note:
+                updates["location_note"] = defaults["default_location_note"]
+            if defaults["default_trailer_destination_location"] and not existing.trailer_destination_location:
+                updates["trailer_destination_location"] = defaults["default_trailer_destination_location"]
+            if updates:
+                existing.write(updates)
             return existing
         vals = self._prepare_dispatch_create_vals(dispatch_type)
         return self.env["tf.dispatch.ticket"].create(vals)

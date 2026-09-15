@@ -7,7 +7,7 @@
             <list string="Container Tracking"
                   create="false"
                   decoration-bf="tf_eta_overdue or tf_lfd_overdue"
-                  decoration-danger="tf_eta_overdue or tf_lfd_overdue or tf_container_status == 'returned'"
+                  decoration-danger="tf_eta_overdue or tf_lfd_overdue or tf_container_status in ['hold', 'returned']"
                   decoration-info="tf_container_status == 'on_water'"
                   decoration-warning="tf_container_status == 'at_port'"
                   decoration-success="tf_container_status == 'ready'"
@@ -39,7 +39,7 @@
                        decoration-success="tf_container_status == 'ready'"
                        decoration-primary="tf_container_status == 'picked_up'"
                        decoration-muted="tf_container_status == 'de_stuffed'"
-                       decoration-danger="tf_container_status == 'returned'"/>
+                       decoration-danger="tf_container_status in ['hold', 'returned']"/>
                 <field name="tf_container_location"/>
                 <field name="tf_address_note" optional="show"/>
                 <field name="tf_eta"/>
@@ -256,6 +256,7 @@
 
                 <filter string="On the Water" name="container_on_water" domain="[('tf_container_status', '=', 'on_water')]"/>
                 <filter string="At Port" name="container_at_port" domain="[('tf_container_status', '=', 'at_port')]"/>
+                <filter string="Hold" name="container_hold" domain="[('tf_container_status', '=', 'hold')]"/>
                 <filter string="Ready" name="container_ready" domain="[('tf_container_status', '=', 'ready')]"/>
                 <filter string="Ready for Return" name="container_ready_for_return" domain="[('tf_container_status', '=', 'ready_for_return')]"/>
                 <filter string="Picked Up" name="container_picked_up" domain="[('tf_container_status', '=', 'picked_up')]"/>

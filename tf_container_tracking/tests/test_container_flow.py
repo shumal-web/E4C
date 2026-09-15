@@ -153,6 +153,7 @@ class TestContainerFlow(TransactionCase):
         self.assertIn(("MSC", "MSC"), plan_model._fields["tf_ssl"].selection)
         self.assertIn(("CN", "CN"), plan_model._fields["tf_port_to_destuff"].selection)
         self.assertIn(("hold", "Hold"), plan_model._fields["tf_internal_status"].selection)
+        self.assertIn(("hold", "Hold"), plan_model._fields["tf_container_status"].selection)
         self.assertIn("tf_address_partner_id", self.env["stock.lot"]._fields)
         self.assertIn("tf_address_note", self.env["stock.lot"]._fields)
         self.assertIn("tf_container_serial_number", self.env["stock.lot"]._fields)
@@ -178,6 +179,10 @@ class TestContainerFlow(TransactionCase):
         self.assertIn("tf_address_note", form_view["arch"])
         self.assertIn("tf_shipper_partner_id", form_view["arch"])
         self.assertIn("tf_shipper_note", form_view["arch"])
+        form_arch = etree.fromstring(form_view["arch"].encode())
+        preview_buttons = form_arch.xpath("//button[@name='action_preview_sale_order']")
+        self.assertTrue(preview_buttons)
+        self.assertTrue(all(button.get("invisible") == "1" for button in preview_buttons))
         self.assertIn("tf_consignee_partner_id", form_view["arch"])
         self.assertIn("tf_consignee_note", form_view["arch"])
         self.assertIn("tf_special_instructions", form_view["arch"])
@@ -719,6 +724,40 @@ class TestContainerFlow(TransactionCase):
         self.assertTrue(second_container_line.tf_piece_line_ids.product_id.product_tmpl_id.tf_requires_container)
         self.assertLess(second_container_line.sequence, ordered_lines.filtered(lambda line: line.product_id == delivery_product).sequence)
 
+    def test_export_new_container_lines_stay_at_bottom_of_quote_lines(self):
+        partner = self._create_partner("Export Line Sequence Partner")
+        container_product = self._create_product("Export Line Sequence Container", is_container=True)
+        self._create_product("Piece", requires_container=True)
+        pickup_product = self.env["product.template"].create({
+            "name": "Pick up from",
+            "type": "service",
+            "sale_ok": True,
+            "purchase_ok": False,
+        }).product_variant_id
+        waiting_product = self.env["product.template"].create({
+            "name": "Waiting time",
+            "type": "service",
+            "sale_ok": True,
+            "purchase_ok": False,
+        }).product_variant_id
+
+        sale_order = self.env["sale.order"].create({
+            "partner_id": partner.id,
+            "tf_shipment_type": "export",
+        })
+        self._create_so_line(sale_order, pickup_product, 1.0)
+        waiting_line = self._create_so_line(sale_order, waiting_product, 1.0)
+        container_line = self._create_so_line(sale_order, container_product, 1.0)
+
+        sale_order.invalidate_recordset(["order_line"])
+        ordered_lines = sale_order.order_line.sorted(lambda line: (line.sequence, line.id))
+        self.assertEqual(
+            [line.product_id.name for line in ordered_lines],
+            ["Pick up from", "Waiting time", "Export Line Sequence Container", "Piece"],
+        )
+        self.assertTrue(container_line.tf_piece_line_ids)
+        self.assertGreater(container_line.sequence, waiting_line.sequence)
+
     def test_quotation_template_sets_sales_order_defaults(self):
         partner = self._create_partner("Template Flow Partner")
         template = self.env["sale.order.template"].create({
@@ -1053,6 +1092,33 @@ class TestContainerFlow(TransactionCase):
         self.assertEqual(dispatch.tf_container_weight, 100.0)
         self.assertAlmostEqual(dispatch.tf_container_total_weight, 150.0)
         self.assertEqual(dispatch.tf_container_total_weight_unit, "kg")
+
+    def test_dispatch_ticket_create_maps_destination_from_dispatch_type(self):
+        partner = self._create_partner("Manual Destination Partner")
+        container_product = self._create_product("Manual Destination Container", is_container=True)
+        sale_order = self.env["sale.order"].create({
+            "partner_id": partner.id,
+            "tf_consignee_note": "Manual customer destination",
+        })
+        container_line = self._create_so_line(sale_order, container_product, 1.0)
+        self._open_wizard(container_line).action_apply()
+        container_plan = container_line.tf_serial_plan_ids[:1]
+        container_plan.write({"tf_address_note": "Manual terminal destination"})
+
+        ticket = self.env["tf.dispatch.ticket"].create({
+            "dispatch_type": "return_container",
+            "sale_order_id": sale_order.id,
+            "container_plan_id": container_plan.id,
+        })
+        self.assertEqual(ticket.location_note, "Manual terminal destination")
+        self.assertEqual(ticket.trailer_destination_location, "Manual terminal destination")
+
+        direct_ticket = self.env["tf.dispatch.ticket"].create({
+            "dispatch_type": "direct_container_client",
+            "sale_order_id": sale_order.id,
+            "container_plan_id": container_plan.id,
+        })
+        self.assertEqual(direct_ticket.trailer_destination_location, "Manual customer destination")
 
     def test_serial_flow_regression_without_container(self):
         partner = self._create_partner("Serial Regression Partner")
@@ -1650,7 +1716,8 @@ class TestContainerFlow(TransactionCase):
             "sale_order_id": sale_order.id,
             "container_plan_id": plan.id,
             "trailer_id": trailer.id,
-            "trailer_current_location": "Client Dock",
+            "trailer_current_location": "Yard A",
+            "trailer_destination_location": "Client Dock",
         })
         ticket.action_send_whatsapp()
         ticket.action_mark_in_progress()
@@ -1769,14 +1836,51 @@ class TestContainerFlow(TransactionCase):
         self.assertEqual(transfer.picking_type_code, "internal")
         self.assertEqual(set(transfer.move_line_ids.mapped("lot_id").ids), set(selected_lots.ids))
         self.assertFalse(transfer.move_line_ids.filtered(lambda line: line.lot_id in unrelated_stock_lots))
+        self.assertEqual(len(transfer._tf_moves()), 1)
+        self.assertEqual(transfer._tf_moves().product_uom_qty, 2.0)
 
         delivery = dispatch.delivery_order_id
         self.assertEqual(delivery.picking_type_code, "outgoing")
         self.assertEqual(set(delivery.move_line_ids.mapped("lot_id").ids), set(selected_lots.ids))
         self.assertFalse(delivery.move_line_ids.filtered(lambda line: line.lot_id in unrelated_stock_lots))
+        self.assertEqual(len(delivery._tf_moves()), 1)
+        self.assertEqual(delivery._tf_moves().product_uom_qty, 2.0)
 
         action_again = selected_lots.action_tf_truck_out_selected()
         self.assertEqual(action_again.get("res_id"), dispatch.id)
+
+        remaining_lot = piece_line.tf_serial_plan_ids.sorted(lambda p: (p.sequence, p.id)).mapped("lot_id")[2:3]
+        self.assertEqual(len(remaining_lot), 1)
+        single_action = remaining_lot.action_tf_truck_out_selected()
+        self.assertEqual(single_action.get("res_model"), "tf.dispatch.ticket")
+        single_dispatch = self.env["tf.dispatch.ticket"].browse(single_action["res_id"])
+        self.assertEqual(set(single_dispatch.internal_transfer_id.move_line_ids.mapped("lot_id").ids), set(remaining_lot.ids))
+        self.assertEqual(set(single_dispatch.delivery_order_id.move_line_ids.mapped("lot_id").ids), set(remaining_lot.ids))
+        self.assertEqual(len(single_dispatch.internal_transfer_id._tf_moves()), 1)
+        self.assertEqual(single_dispatch.internal_transfer_id._tf_moves().product_uom_qty, 1.0)
+        self.assertEqual(len(single_dispatch.delivery_order_id._tf_moves()), 1)
+        self.assertEqual(single_dispatch.delivery_order_id._tf_moves().product_uom_qty, 1.0)
+
+        old_internal_transfer = single_dispatch.internal_transfer_id
+        old_delivery_order = single_dispatch.delivery_order_id
+        self._validate_picking(old_internal_transfer)
+        self.assertEqual(old_internal_transfer.state, "done")
+        old_delivery_order.action_cancel()
+        single_dispatch.action_cancel()
+
+        repaired_action = remaining_lot.action_tf_truck_out_selected()
+        self.assertEqual(repaired_action.get("res_model"), "tf.dispatch.ticket")
+        repaired_dispatch = self.env["tf.dispatch.ticket"].browse(repaired_action["res_id"])
+        self.assertEqual(repaired_dispatch.internal_transfer_id, old_internal_transfer)
+        self.assertTrue(repaired_dispatch.delivery_order_id)
+        self.assertNotEqual(repaired_dispatch.delivery_order_id, old_delivery_order)
+        self.assertEqual(set(repaired_dispatch.delivery_order_id.move_line_ids.mapped("lot_id").ids), set(remaining_lot.ids))
+        active_single_dispatch = self.env["tf.dispatch.ticket"].search([
+            ("internal_transfer_id", "=", old_internal_transfer.id),
+            ("dispatch_type", "=", "import_dispatch"),
+            ("state", "!=", "cancel"),
+        ])
+        self.assertEqual(len(active_single_dispatch), 1)
 
     def test_inventory_lot_truck_out_allows_multiple_sales_orders_for_same_customer(self):
         partner = self._create_partner("Multi SO Truck Out Partner")
@@ -1864,7 +1968,10 @@ class TestContainerFlow(TransactionCase):
     def test_inventory_lot_truck_out_action_creates_transfer_and_dispatch_for_container_serial(self):
         partner = self._create_partner("Stock Lot Container Truck Out Partner")
         container_product = self._create_product("Truck Out Container Product", is_container=True)
-        sale_order = self.env["sale.order"].create({"partner_id": partner.id})
+        sale_order = self.env["sale.order"].create({
+            "partner_id": partner.id,
+            "tf_consignee_note": "Inventory customer dock",
+        })
         container_line = self._create_so_line(sale_order, container_product, 1.0)
 
         wizard = self._open_wizard(container_line)
@@ -1882,6 +1989,7 @@ class TestContainerFlow(TransactionCase):
         dispatch = self.env["tf.dispatch.ticket"].browse(action["res_id"])
         self.assertEqual(dispatch.sale_order_id, sale_order)
         self.assertEqual(dispatch.container_plan_id, container_plan)
+        self.assertEqual(dispatch.trailer_destination_location, "Inventory customer dock")
         self.assertTrue(dispatch.internal_transfer_id)
         self.assertEqual(dispatch.internal_transfer_id.picking_type_code, "internal")
         self.assertEqual(dispatch.internal_transfer_id.move_line_ids.mapped("lot_id").ids, container_plan.lot_id.ids)
@@ -2031,6 +2139,7 @@ class TestContainerFlow(TransactionCase):
         ], limit=1)
         self.assertEqual(leg_1.dispatch_type, "delivery_leg_1")
         self.assertEqual(leg_1.location_note, "Termont Viau 52")
+        self.assertEqual(leg_1.trailer_destination_location, "Termont Viau 52")
         self.assertTrue(leg_1.receiving_picking_id)
         self.assertTrue(leg_1.internal_transfer_id)
         self.assertEqual(leg_1.internal_transfer_id._tf_moves().mapped("product_id"), piece_product)
@@ -2061,6 +2170,7 @@ class TestContainerFlow(TransactionCase):
             ("dispatch_type", "=", "delivery_leg_2"),
         ], limit=1)
         self.assertTrue(leg_2)
+        self.assertEqual(leg_2.trailer_destination_location, sale_order._tf_company_location_text())
         self.assertFalse(leg_2.delivery_order_id)
         self.assertFalse(self.env["stock.picking"].search([
             ("tf_container_plan_id", "=", plan.id),
@@ -2090,6 +2200,7 @@ class TestContainerFlow(TransactionCase):
         ], limit=1)
         self.assertTrue(return_leg)
         self.assertEqual(return_leg.receiving_picking_id, receiving)
+        self.assertEqual(return_leg.trailer_destination_location, sale_order._tf_order_customer_destination_text())
 
         return_leg.write({
             "trailer_id": trailer.id,
@@ -2141,6 +2252,7 @@ class TestContainerFlow(TransactionCase):
         ])
         self.assertEqual(len(direct_ticket), 1)
         self.assertEqual(direct_ticket.delivery_order_id, direct_delivery)
+        self.assertEqual(direct_ticket.trailer_destination_location, sale_order._tf_order_customer_destination_text())
         self.assertFalse(self.env["stock.picking"].search([
             ("tf_container_plan_id", "=", plan.id),
             ("picking_type_code", "in", ("incoming", "internal")),
@@ -2199,6 +2311,8 @@ class TestContainerFlow(TransactionCase):
         self.assertEqual(len(leg_2), 1)
         self.assertEqual(leg_1.location_note, "CFS pickup warehouse")
         self.assertEqual(leg_2.location_note, "CFS delivery client")
+        self.assertEqual(leg_1.trailer_destination_location, "CFS pickup warehouse")
+        self.assertEqual(leg_2.trailer_destination_location, "CFS delivery client")
         self.assertEqual(leg_1.contact_id, dispatch_contact)
         self.assertEqual(leg_2.contact_id, dispatch_contact)
         self.assertFalse(leg_1.container_plan_id)
@@ -2237,13 +2351,27 @@ class TestContainerFlow(TransactionCase):
         partner = self._create_partner("Export Flow Partner")
         container_product = self._create_product("Export Container", is_container=True)
         case_product = self._create_product("Export Case")
+        service_product = self.env["product.template"].create({
+            "name": "Export Waiting Time",
+            "type": "service",
+            "sale_ok": True,
+            "purchase_ok": False,
+        }).product_variant_id
 
         sale_order = self.env["sale.order"].create({
             "partner_id": partner.id,
             "tf_shipment_type": "export",
+            "tf_shipper_note": "Export customer pickup address",
+            "tf_consignee_note": "Export consignee destination",
         })
         container_line = self._create_so_line(sale_order, container_product, 1.0)
         case_line = self._create_so_line(sale_order, case_product, 2.0)
+        self._create_so_line(sale_order, service_product, 1.0)
+        self.env["sale.order.line"].create({
+            "order_id": sale_order.id,
+            "display_type": "line_section",
+            "name": "Delivery to our facility in Lachine, QC:",
+        })
 
         sale_order.action_tf_submit_for_approval()
         self.assertEqual(sale_order.tf_flow_state, "to_approve")
@@ -2254,6 +2382,10 @@ class TestContainerFlow(TransactionCase):
         container_plan = container_line.tf_serial_plan_ids[:1]
         self.assertTrue(container_plan)
         self.assertEqual(container_plan.tf_internal_status, "pickup")
+        container_plan.write({
+            "tf_address_note": "Export terminal destination",
+            "tf_container_location": "Export E4C yard slot",
+        })
 
         sale_order.action_tf_create_export_flow()
 
@@ -2269,6 +2401,12 @@ class TestContainerFlow(TransactionCase):
         self.assertTrue(case_leg_2)
         self.assertTrue(case_leg_1.receiving_picking_id)
         self.assertTrue(case_leg_2.internal_transfer_id)
+        self.assertEqual(case_leg_1.trailer_destination_location, "Export customer pickup address")
+        self.assertEqual(case_leg_2.trailer_destination_location, sale_order._tf_company_location_text())
+        self.assertEqual(case_leg_1.receiving_picking_id._tf_moves().mapped("product_id"), case_product)
+        self.assertEqual(case_leg_1.receiving_picking_id._tf_moves().mapped("sale_line_id"), case_line)
+        self.assertEqual(case_leg_2.internal_transfer_id._tf_moves().mapped("product_id"), case_product)
+        self.assertEqual(case_leg_2.internal_transfer_id._tf_moves().mapped("sale_line_id"), case_line)
 
         container_leg_1 = self.env["tf.dispatch.ticket"].search([
             ("container_plan_id", "=", container_plan.id),
@@ -2280,6 +2418,8 @@ class TestContainerFlow(TransactionCase):
         ], limit=1)
         self.assertTrue(container_leg_1)
         self.assertTrue(container_leg_2)
+        self.assertEqual(container_leg_1.trailer_destination_location, "Export terminal destination")
+        self.assertEqual(container_leg_2.trailer_destination_location, sale_order._tf_company_location_text())
 
         truck_out_action = container_plan.action_truck_out_from_inventory()
         truck_out = self.env["stock.picking"].browse(truck_out_action["res_id"])
@@ -2288,6 +2428,12 @@ class TestContainerFlow(TransactionCase):
             move_line.lot_name = f"EXP-{move_line.id}"
             move_line.quantity = 1.0
         self._validate_picking(truck_out)
+        container_leg_3 = self.env["tf.dispatch.ticket"].search([
+            ("container_plan_id", "=", container_plan.id),
+            ("dispatch_type", "=", "export_container_leg_3"),
+        ], limit=1)
+        self.assertTrue(container_leg_3)
+        self.assertEqual(container_leg_3.trailer_destination_location, "Export terminal destination")
 
         sale_order.invalidate_recordset(["tf_flow_state"])
         self.assertEqual(sale_order.tf_flow_state, "completed")

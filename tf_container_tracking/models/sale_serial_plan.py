@@ -17,6 +17,7 @@ INTERNAL_STATUS_SELECTION = [
 CONTAINER_STATUS_SELECTION = [
     ("on_water", "On the Water"),
     ("at_port", "At Port"),
+    ("hold", "Hold"),
     ("ready", "Ready"),
     ("ready_for_return", "Ready for Return"),
     ("picked_up", "Picked Up"),

@@ -326,6 +326,44 @@ class SaleOrder(models.Model):
             values.append(address)
         return "\n".join(dict.fromkeys([value for value in values if value]))
 
+    def _tf_company_location_text(self):
+        self.ensure_one()
+        company_partner = self.company_id.partner_id
+        return self._tf_partner_address_text(company_partner) or self.company_id.name
+
+    def _tf_order_shipper_destination_text(self):
+        self.ensure_one()
+        return (
+            self.tf_shipper_note
+            or self._tf_partner_address_text(self.tf_shipper_partner_id)
+            or self._tf_partner_address_text(self.partner_shipping_id)
+            or self._tf_partner_address_text(self.partner_id)
+        )
+
+    def _tf_order_customer_destination_text(self):
+        self.ensure_one()
+        return (
+            self.tf_consignee_note
+            or self._tf_partner_address_text(self.tf_consignee_partner_id)
+            or self._tf_partner_address_text(self.partner_shipping_id)
+            or self._tf_partner_address_text(self.partner_id)
+        )
+
+    def _tf_order_dispatch_destination(self, dispatch_type, fallback=False):
+        self.ensure_one()
+        dispatch_type = dispatch_type or "pickup_parts"
+        destination_map = {
+            "pickup_parts": self._tf_order_shipper_destination_text(),
+            "export_case_leg_1": self._tf_order_shipper_destination_text(),
+            "export_case_leg_2": self._tf_company_location_text(),
+            "cfs_piece_pickup_leg_1": self._tf_order_shipper_destination_text(),
+            "cfs_piece_delivery_leg_2": self._tf_order_customer_destination_text(),
+            "direct_container_client": self._tf_order_customer_destination_text(),
+            "return_leg": self._tf_order_customer_destination_text(),
+            "import_dispatch": self._tf_order_customer_destination_text(),
+        }
+        return destination_map.get(dispatch_type) or fallback or self._tf_order_customer_destination_text()
+
     @api.onchange("tf_shipper_partner_id")
     def _onchange_tf_shipper_partner_id(self):
         for order in self:
@@ -423,11 +461,25 @@ class SaleOrder(models.Model):
 
     def _tf_get_case_lines(self):
         self.ensure_one()
-        return self.order_line.filtered(
-            lambda l: not l.product_id.product_tmpl_id.tf_is_container
-            and not l.product_id.product_tmpl_id.tf_direct_container_to_client
-            and not l.product_id.product_tmpl_id.tf_cfs_pieces_flow
-        )
+        def is_export_inventory_line(line):
+            product = line.product_id
+            if line.display_type or not product:
+                return False
+            product_template = product.product_tmpl_id
+            if (
+                product_template.tf_is_container
+                or product_template.tf_direct_container_to_client
+                or product_template.tf_cfs_pieces_flow
+            ):
+                return False
+            return bool(
+                product_template.tf_requires_container
+                or product.tracking == "serial"
+                or (product._fields.get("is_storable") and product.is_storable)
+                or (product_template._fields.get("is_storable") and product_template.is_storable)
+            )
+
+        return self.order_line.filtered(is_export_inventory_line)
 
     def _tf_ensure_container_plans_from_order(self, internal_status):
         plan_model = self.env["tf.sale.serial.plan"]
@@ -475,6 +527,8 @@ class SaleOrder(models.Model):
 
     def _tf_create_order_dispatch_ticket(self, dispatch_type, title, location_note=False):
         self.ensure_one()
+        destination_location = self._tf_order_dispatch_destination(dispatch_type, fallback=location_note)
+        dispatch_address = location_note or destination_location
         existing = self.env["tf.dispatch.ticket"].search(
             [
                 ("sale_order_id", "=", self.id),
@@ -485,13 +539,21 @@ class SaleOrder(models.Model):
             limit=1,
         )
         if existing:
+            updates = {}
+            if dispatch_address and not existing.location_note:
+                updates["location_note"] = dispatch_address
+            if destination_location and not existing.trailer_destination_location:
+                updates["trailer_destination_location"] = destination_location
+            if updates:
+                existing.write(updates)
             return existing
         return self.env["tf.dispatch.ticket"].create(
             {
                 "sale_order_id": self.id,
                 "dispatch_type": dispatch_type,
                 "location_partner_id": self.partner_shipping_id.id or self.partner_id.id,
-                "location_note": location_note or self.partner_shipping_id.display_name or self.partner_id.display_name,
+                "location_note": dispatch_address,
+                "trailer_destination_location": destination_location,
                 "note": title,
             }
         )

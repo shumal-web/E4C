@@ -201,14 +201,14 @@ class StockLot(models.Model):
             limit=1,
         )
 
-    def _tf_find_existing_truck_out_picking(self, sale_orders):
+    def _tf_find_existing_truck_out_picking(self, sale_orders, operation_code="internal"):
         lot_ids = set(self.ids)
         candidate_lines = self.env["stock.move.line"].search(
             [
                 ("lot_id", "in", list(lot_ids)),
-                ("picking_id.picking_type_code", "=", "internal"),
+                ("picking_id.picking_type_code", "=", operation_code),
                 ("picking_id.tf_sale_order_id", "in", sale_orders.ids),
-                ("picking_id.state", "not in", ("done", "cancel")),
+                ("picking_id.state", "!=", "cancel"),
             ]
         )
         for picking in candidate_lines.mapped("picking_id"):
@@ -216,6 +216,87 @@ class StockLot(models.Model):
             if picking_lot_ids == lot_ids:
                 return picking
         return self.env["stock.picking"]
+
+    def _tf_get_container_plans_for_truck_out(self):
+        container_plans = self.env["tf.sale.serial.plan"]
+        for lot in self:
+            container_plans |= lot._tf_get_container_plan_for_truck_out()
+        return container_plans
+
+    def _tf_find_existing_truck_out_dispatch_ticket(self, internal_transfer=False, delivery_order=False):
+        domain = [
+            ("dispatch_type", "=", "import_dispatch"),
+            ("state", "!=", "cancel"),
+        ]
+        if internal_transfer and delivery_order:
+            domain += [
+                "|",
+                ("internal_transfer_id", "=", internal_transfer.id),
+                ("delivery_order_id", "=", delivery_order.id),
+            ]
+        elif internal_transfer:
+            domain.append(("internal_transfer_id", "=", internal_transfer.id))
+        elif delivery_order:
+            domain.append(("delivery_order_id", "=", delivery_order.id))
+        else:
+            return self.env["tf.dispatch.ticket"]
+        return self.env["tf.dispatch.ticket"].search(domain, limit=1)
+
+    def _tf_get_or_create_truck_out_dispatch_ticket(self, sale_orders, internal_transfer, delivery_order=False):
+        sale_order = sale_orders[:1]
+        container_plans = self._tf_get_container_plans_for_truck_out()
+        container_plan = container_plans[:1] if len(container_plans) == 1 else self.env["tf.sale.serial.plan"]
+        destination_location = (
+            container_plan._tf_dispatch_destination_for_type("import_dispatch")
+            if container_plan
+            else sale_order._tf_order_dispatch_destination("import_dispatch")
+        )
+        dispatch_ticket = self._tf_find_existing_truck_out_dispatch_ticket(
+            internal_transfer=internal_transfer,
+            delivery_order=delivery_order,
+        )
+
+        ticket_vals = {
+            "sale_order_ids": [(6, 0, sale_orders.ids)],
+        }
+        if destination_location and not dispatch_ticket.trailer_destination_location:
+            ticket_vals["trailer_destination_location"] = destination_location
+        if internal_transfer and not dispatch_ticket.internal_transfer_id:
+            ticket_vals["internal_transfer_id"] = internal_transfer.id
+        if delivery_order and not dispatch_ticket.delivery_order_id:
+            ticket_vals["delivery_order_id"] = delivery_order.id
+        if container_plan and not dispatch_ticket.container_plan_id:
+            ticket_vals["container_plan_id"] = container_plan.id
+
+        if dispatch_ticket:
+            dispatch_ticket.write(ticket_vals)
+            return dispatch_ticket
+
+        return self.env["tf.dispatch.ticket"].create(
+            {
+                "dispatch_type": "import_dispatch",
+                "sale_order_id": sale_order.id,
+                "sale_order_ids": [(6, 0, sale_orders.ids)],
+                "container_plan_id": container_plan.id or False,
+                "location_partner_id": sale_order.partner_shipping_id.id or sale_order.partner_id.id,
+                "location_note": internal_transfer.location_id.display_name if internal_transfer else False,
+                "trailer_destination_location": destination_location,
+                "dispatch_date": fields.Datetime.now(),
+                "internal_transfer_id": internal_transfer.id if internal_transfer else False,
+                "delivery_order_id": delivery_order.id if delivery_order else False,
+                "note": self._tf_prepare_truck_out_dispatch_note(container_plans, sale_orders),
+            }
+        )
+
+    def _tf_open_truck_out_dispatch_ticket(self, dispatch_ticket):
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Dispatch Ticket"),
+            "res_model": "tf.dispatch.ticket",
+            "res_id": dispatch_ticket.id,
+            "view_mode": "form",
+            "target": "current",
+        }
 
     def _tf_prepare_truck_out_dispatch_note(self, container_plans, sale_orders=False):
         lot_names = ", ".join(self.mapped("name"))
@@ -493,32 +574,24 @@ class StockLot(models.Model):
         if not picking_type:
             raise UserError(_("No internal picking type found for this company."))
 
-        existing_picking = lots._tf_find_existing_truck_out_picking(sale_orders)
+        existing_picking = lots._tf_find_existing_truck_out_picking(sale_orders, operation_code="internal")
         if existing_picking:
-            dispatch_ticket = self.env["tf.dispatch.ticket"].search(
-                [
-                    ("internal_transfer_id", "=", existing_picking.id),
-                    ("state", "!=", "cancel"),
-                ],
-                limit=1,
+            existing_delivery = lots._tf_find_existing_truck_out_picking(sale_orders, operation_code="outgoing")
+            if not existing_delivery:
+                outgoing_type = self.env["stock.picking"]._tf_get_picking_type("outgoing", sale_order.company_id)
+                if not outgoing_type:
+                    raise UserError(_("No delivery picking type found for this company."))
+                existing_delivery = lots._tf_create_truck_out_delivery(
+                    sale_orders,
+                    existing_picking.location_dest_id,
+                    outgoing_type.default_location_dest_id,
+                )
+            dispatch_ticket = lots._tf_get_or_create_truck_out_dispatch_ticket(
+                sale_orders,
+                existing_picking,
+                delivery_order=existing_delivery,
             )
-            if dispatch_ticket:
-                return {
-                    "type": "ir.actions.act_window",
-                    "name": _("Dispatch Ticket"),
-                    "res_model": "tf.dispatch.ticket",
-                    "res_id": dispatch_ticket.id,
-                    "view_mode": "form",
-                    "target": "current",
-                }
-            return {
-                "type": "ir.actions.act_window",
-                "name": _("Internal Transfer"),
-                "res_model": "stock.picking",
-                "res_id": existing_picking.id,
-                "view_mode": "form",
-                "target": "current",
-            }
+            return lots._tf_open_truck_out_dispatch_ticket(dispatch_ticket)
 
         picking = lots._tf_create_truck_out_transfer(
             sale_orders,
@@ -534,34 +607,16 @@ class StockLot(models.Model):
             outgoing_type.default_location_dest_id,
         )
 
-        container_plans = self.env["tf.sale.serial.plan"]
-        for lot in lots:
-            container_plans |= lot._tf_get_container_plan_for_truck_out()
+        container_plans = lots._tf_get_container_plans_for_truck_out()
         if container_plans:
             active_plans = container_plans.filtered(lambda plan: plan.tf_dispatch_progress == "not_dispatched")
             if active_plans:
                 active_plans.sudo().with_context(mail_notrack=True).write({"tf_dispatch_progress": "delivery"})
 
-        dispatch_ticket = self.env["tf.dispatch.ticket"].create(
-            {
-                "dispatch_type": "import_dispatch",
-                "sale_order_id": sale_order.id,
-                "sale_order_ids": [(6, 0, sale_orders.ids)],
-                "container_plan_id": container_plans[:1].id if len(container_plans) == 1 else False,
-                "location_partner_id": sale_order.partner_shipping_id.id or sale_order.partner_id.id,
-                "location_note": source_locations[:1].display_name,
-                "dispatch_date": fields.Datetime.now(),
-                "internal_transfer_id": picking.id,
-                "delivery_order_id": delivery.id or False,
-                "note": lots._tf_prepare_truck_out_dispatch_note(container_plans, sale_orders),
-            }
+        dispatch_ticket = lots._tf_get_or_create_truck_out_dispatch_ticket(
+            sale_orders,
+            picking,
+            delivery_order=delivery,
         )
 
-        return {
-            "type": "ir.actions.act_window",
-            "name": _("Dispatch Ticket"),
-            "res_model": "tf.dispatch.ticket",
-            "res_id": dispatch_ticket.id,
-            "view_mode": "form",
-            "target": "current",
-        }
+        return lots._tf_open_truck_out_dispatch_ticket(dispatch_ticket)

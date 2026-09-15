@@ -230,6 +230,45 @@ class SaleOrderLine(models.Model):
         orders.invalidate_recordset(["order_line"])
         for order in orders:
             ordered_lines = order.order_line.sorted(lambda line: (line.sequence, line.id))
+            if order.tf_shipment_type == "export":
+                target_lines = []
+                visited_ids = set()
+
+                def append_line(line):
+                    if line.id not in visited_ids:
+                        target_lines.append(line)
+                        visited_ids.add(line.id)
+
+                for line in ordered_lines:
+                    if line.id in visited_ids:
+                        continue
+                    if not line.display_type and line._tf_is_container_line():
+                        append_line(line)
+                        for piece_line in line.tf_piece_line_ids.sorted(
+                            lambda item: (item.tf_auto_piece_line, item.sequence, item.id)
+                        ):
+                            append_line(piece_line)
+                    elif (
+                        not line.display_type
+                        and line._tf_requires_container_assignment()
+                        and line.tf_container_line_id
+                        and line.tf_container_line_id.id not in visited_ids
+                    ):
+                        continue
+                    else:
+                        append_line(line)
+
+                for index, line in enumerate(target_lines, start=1):
+                    target_sequence = index * 10
+                    if line.sequence == target_sequence:
+                        continue
+                    line.with_context(
+                        tf_skip_container_piece_line_sync=True,
+                        tf_skip_line_sequence_normalize=True,
+                    ).sequence = target_sequence
+                order.invalidate_recordset(["order_line"])
+                continue
+
             container_piece_lines = self.env["sale.order.line"]
             for container_line in ordered_lines.filtered(lambda line: not line.display_type and line._tf_is_container_line()):
                 container_piece_lines |= container_line
